@@ -1,0 +1,169 @@
+---
+title: "Inital data analysis of Ames inventory"
+
+author: 
+-  "Student name: Albert,Varun, Ying & Saud"
+- "Email: ylon0012@student.monash.edu"
+date: 'Published on `r Sys.Date()`'
+output: 
+  bookdown::html_document2:
+    css: monashreport.css
+    includes:
+      before_body: AMES.html
+    toc: yes
+    toc_float: yes
+    theme: sandstone
+    number_sections: false
+keep_md: true 
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,eval =TRUE, message =FALSE, warning =FALSE)
+```
+
+
+```{r library}
+## library package
+library(tidyverse)
+library(fpp3)
+library(readxl)
+library(janitor)
+library(plotly)
+```
+
+
+## 🔍demand forecasting
+
+**Historical pattern**
+```{r read_data}
+
+## read_excel
+ames_production<-read_excel("data/move_out_data.xlsx")%>% clean_names()
+
+## Data wrangling
+ames_production_long<-ames_production %>%
+  pivot_longer(m_12:m_1,
+               names_to  = "date",
+               values_to ="movement_out_quantity") %>% ##convert to long format
+  mutate( date =as.numeric(str_remove(date,"m_")),
+          date = floor_date(Sys.Date(), "months") - months(date),
+          date= yearmonth(date)) ## Convert date into yearmonth format
+
+
+```
+
+
+
+
+
+```{r historical_trend}
+plot_history<-  ames_production_long %>%
+  ggplot(aes(x= date,
+             y = movement_out_quantity,
+             color = description))+
+  geom_line( size =1)+ 
+  geom_point( color ="black",
+              aes(fill = description)) +
+  theme_bw() +
+  labs(y =" Move-out quantity", y = "Date", 
+       color ="Product", fill ="Product") ## Change the label
+  
+ggplotly(plot_history)%>% 
+          layout(
+            hovermode = "closest",
+            hoverlabel = list(bgcolor = "white"),
+            hoverinfo = "text+y",
+            xaxis = list(spikemode = 'across')) ##Add hover line
+```
+```{r}
+## Convert to tsibble(temporal data frame)
+ames_production_ts<- as_tsibble(ames_production_long, key = c("description","material_type"), index =date)
+
+Example_1<-ames_production_ts %>% filter(description =="EXAMPLE 1")
+```
+
+**Demand forecasting**
+
+ETS model decomposition:
+```{r}
+model_ETS<- Example_1  |>
+  model(ETS(movement_out_quantity)) 
+  components(model_ETS) |>
+    
+ autoplot() +theme_bw() +
+ theme(strip.background = element_rect(fill = "#90EE90"),
+ strip.text.x = element_text(size = 12, 
+ face ="bold")) 
+```
+
+
+```{r foprecast}
+model_ETS  |>
+  forecast(h = 6)
+```
+ARIMA model decomposition
+
+```{r report}
+model_ARIMA_exp1<-Example_1  |>
+  model(ARIMA(movement_out_quantity))
+
+
+report(model_ARIMA_exp1)
+
+
+```
+
+
+
+
+
+
+```{r}
+  forecast_model_exp1<- model_ARIMA_exp1 |>
+  forecast(h = 6) 
+
+forecast_data_exp1<-  as.tibble( forecast_model_exp1) %>% rename( model =movement_out_quantity,
+                                                        movement_out_quantity =.mean) %>% 
+  mutate( model =as.character(model),
+          var =as.numeric(str_extract(model , "(?<=,\\s)\\d+\\.?\\d*(?:[eE][-+]?\\d+)?")),
+          sigma =sqrt(var),
+          low80 = movement_out_quantity - 1.282 *sigma,
+          high80 = movement_out_quantity + 1.282 *sigma,
+          low90 = movement_out_quantity - 1.645*sigma,
+          high90 = movement_out_quantity + 1.645 *sigma
+          )
+
+
+data_bind_exp_1<- rbind(forecast_data_exp1 %>% select(description, material_type, date, movement_out_quantity) ,ames_production_long %>% filter(description =="EXAMPLE 1") )
+
+
+```
+
+
+
+```{r}
+forecast_exp1<- ggplot(data = forecast_data_exp1 , ) +
+  geom_line( data = data_bind_exp_1, 
+             aes(x = date,y= movement_out_quantity), 
+             color ="black") + 
+  geom_ribbon( aes(x = date, 
+                   ymin =low80, 
+                   ymax =high80), 
+               fill = "blue",alpha =0.3) +
+  geom_ribbon(aes(x = date, 
+                  ymin =low90, ymax =high90),
+              fill = "#82CAFF",alpha =0.3)+ 
+  geom_line(aes(x = date, y= movement_out_quantity),
+            color ="red")+
+  theme_bw() +
+  annotate("text", x= yearmonth("2024-07"), 
+           y = c(20000, 36000), 
+           label =c("80%CI", "90%CI"))+
+  labs(x="Date", y="Move-out quantity",
+       title = "6 months forecast of product by Arima(1,0,0) model")
+
+ggplotly(forecast_exp1)
+```
+
+
