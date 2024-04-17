@@ -1,0 +1,7 @@
+﻿Product code,Item_description,Manufacturing type,Short description,Brand_name,Supplier/Factory code,POL,Target service level,COGs,Wholesale price,Region,Month,Forecast demand,Actual weight-kg,Length-cm,Height-cm,Width-cm,Packaging type,Product volume-cm³,Packaging Length,Packaging width,Packaging height,Stackability,Nestability,Sensitivity,Occupied quantity,Total limited volume--m³,Total limit weight-kg
+Axxxxx1,EVERYDAY SINGLE FF AUT STONE,Outsourcing,FOLDING FRAME,Cyclone,H0046,CNGZG,95%,20,50,MEL,2024-04,175500,12,120,120,120,Carton,1700000,150,150,150,Y,N,Normal,1200,"125,000",1000
+Axxxxx1,EVERYDAY SINGLE FF AUT STONE,Outsourcing,FOLDING FRAME,Cyclone,H0046,CNGZG,95%,20,50,ADE,2024-04,122000,12,120,120,120,Carton,1700000,150,150,150,Y,N,Normal,600,"62,500",800
+Axxxxx2,HILLS TRADITIONAL ROTARY LINE,Outsourcing,FOLDING HEAD ROTARY,Hills,H0046,CNGZG,90%,22.5,25,ADE,2024-04,500,50,1110,100,100,Without packaging,3500000,1500,120,120,N,N,Normal,200,"125,000",1000
+Axxxxx2,HILLS TRADITIONAL ROTARY LINE,Outsourcing,FOLDING HEAD ROTARY,Hills,H0046,CNGZG,90%,22.5,25,MEL,2024-04,1000,50,1110,100,100,Without packaging,3500000,1500,120,120,N,N,Normal,1000,125000,1000
+Axxxxx3,HILLS TRADITIONAL ROTARY LINE,Outsourcing,FLORAL SNIPS,Cyclone,H40612,VNVPH,95%,35,100,MEL,2024-05,1900,4,50,50,50,Plastic wrap,125000,75,75,75,N,N,Normal,290,"62,500",800
+Axxxxx3,HILLS TRADITIONAL ROTARY LINE,Outsourcing,FLORAL SNIPS,Cyclone,H40612,VNVPH,95%,35,100,ADE,2024-06,1050,4,50,50,50,Plastic wrap,125000,75,75,75,N,N,Normal,290,"62,500",800

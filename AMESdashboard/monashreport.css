@@ -1,0 +1,41 @@
+.skin-blue .main-header .logo {
+  background-color: #f2f2f2; /* Change the background color */
+  color: #fff;
+  border-bottom: 0 solid transparent;
+   height: 100px
+}
+
+.skin-blue .main-header .navbar {
+  background-image: url("https://raw.githubusercontent.com/Albertlong44/BEX5112_AMES_consulting_project/main/Fig/AMES.png");
+  background-size: cover; /* Adjust as needed */
+  background-repeat: no-repeat;
+  background-color: #f2f2f2; /* Backup color in case the image doesn't load */
+  height: 100px; /* Set the desired height */
+}
+
+
+.content-wrapper, .right-side {
+  min-height: 220vh; /* Set the minimum height to 100% of viewport height */
+  background-color: #F5F5DC;
+  z-index: 1000;
+}
+
+#sidebarCollapsed {
+  margin-top: 60px; /* Adjust the value as needed */
+  margin-left: 20px;
+}
+
+
+
+li{
+  margin-top: 20px;
+    font-size: large;
+}    
+
+
+form.well{
+
+margin-left: 20px;
+}
+
+}

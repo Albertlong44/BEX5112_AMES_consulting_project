@@ -1,0 +1,134 @@
+---
+title: "Model showcase"
+author: "Yuhao Long"
+date: "2024-03-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(GGally)
+library(fpp3)
+library(colorspace)
+```
+
+```{r}
+cement_production<-aus_production %>% select(Quarter,Cement)
+
+cement_production %>% tail()
+```
+```{r}
+cement_production %>% ggplot(aes(x = Quarter, y = Cement)) +geom_line( color ="purple", size =1) +geom_point()+theme_bw() +labs(y ="Cement production")
+```
+Named 'palette' should be one of: ArmyRose, Earth, Fall, Geyser, TealRose, Temps, Tropic, PuOr, RdBu, RdGy, PiYG, PRGn, BrBG, RdYlBu, RdYlGn, Spectral, Zissou 1, Cividis, Roma"#FF6666", "#0abab5"
+```{r}
+cement_production<- cement_production %>% mutate(Year = year(Quarter),
+                                                 qt = paste0("Q",quarter(Quarter)),
+                             category = case_when( between(Year, 1950, 1959) ~ "1950S",
+                                                   between(Year, 1960, 1969) ~ "1960S",
+                                                   between(Year, 1970, 1979) ~ "1970S",
+                                                   between(Year, 1980, 1989) ~ "1980S",
+                                                      between(Year, 1990, 1999) ~ "1990S",
+                                                    between(Year, 2000, 2010) ~ "2000S",
+                                                         TRUE ~ NA_character_  ))
+```
+
+```{r}
+cement_production %>%  gg_season( Cement, labels = "both") +theme_bw() +labs(y ="Cement production") +scale_color_gradient(low ="#0abab5", high ="#FF6666") +facet_wrap(.~category) +  theme(strip.background = element_rect(fill = "#90EE90"),
+ strip.text.x = element_text(size = 12, 
+ face ="bold"))
+```
+```{r}
+  A<-cement_production  %>%  gg_subseries( Cement)+theme_bw() +labs(y ="Cement production")+  theme(strip.background = element_rect(fill = "#90EE90"),
+ strip.text.x = element_text(size = 12, 
+ face ="bold"))
+```
+```{r}
+ggplotly(A)
+```
+```{r}
+cement_production
+```
+
+
+```{r}
+cement_production  %>% ggplot(aes( x =Year, y =Cement, group = qt, color =qt))+geom_line( size =0.6) +theme_bw()
+```
+```{r}
+aus_production |> ACF(Beer, lag_max = 9)
+#> # A tsibble: 9 x 2 [1Q]
+#>        lag      acf
+#>   <cf_lag>    <dbl>
+#> 1       1Q -0.0530 
+#> 2       2Q -0.758  
+#> 3       3Q -0.0262 
+#> 4       4Q  0.802  
+#> 5       5Q -0.0775 
+#> 6       6Q -0.657  
+#> 7       7Q  0.00119
+#> 8       8Q  0.707  
+#> 9       9Q -0.0888
+```
+```{r}
+aus_production |>  ACF(Cement) |>
+  autoplot() + labs(title="Australian beer production")+theme_bw()
+```
+
+```{r}
+aus_production %>% model(STL( Cement))  %>% components() %>% autoplot()+theme_bw()
+```
+
+```{r}
+aus_production %>% model(STL( Cement~ trend(window =4)+season( window ="periodic")))  %>% components() %>% autoplot()+theme_bw()
+```
+```{r}
+cement_production%>% ACF(Cement) %>% autoplot() +theme_bw()
+```
+
+
+```{r}
+model_fit<-cement_production %>% model(ETS(Cement))
+```
+
+```{r}
+report(model_fit)
+```
+```{r}
+forecast_dt<- model_fit %>% forecast(h =6) %>%  as.tibble() %>% mutate(Cement = as.character(Cement)) %>% rename(model =Cement,
+                                                                                                                            Cement =.mean)
+```
+```{r}
+forecast_dt
+```
+
+```{r}
+forecast_dt<-forecast_dt  %>% mutate( var =as.numeric(str_extract(model , "(?<=,\\s)\\d+\\.?\\d*(?:[eE][-+]?\\d+)?")),
+          sigma =sqrt(var),
+          low80 =  Cement- 1.282 *sigma,
+          high80 =  Cement+ 1.282 *sigma,
+          low90 =  Cement- 1.645*sigma,
+          high90 =  Cement+ 1.645 *sigma
+          )
+```
+```{r}
+ rbind_dt<-rbind(as.tibble(cement_production)%>% select(Quarter, Cement), forecast_dt %>%select(Quarter, Cement))%>% filter(Quarter >= yearquarter("2000-01-01"))
+```
+
+```{r}
+ggplot(data = forecast_dt) +geom_line( data = rbind_dt, aes( x = Quarter,  y = Cement))+ geom_line( aes( x = Quarter,  y = Cement), color ="red", size =0.8) + 
+  geom_ribbon( aes(x = Quarter, 
+                   ymin =low80, 
+                   ymax =high80), 
+               fill = "blue",alpha =0.3) +
+  geom_ribbon(aes(x =  Quarter, 
+                  ymin =low90, ymax =high90),
+              fill = "#82CAFF",alpha =0.3)+ theme_bw()  +
+  annotate("text", x= yearquarter("2011-12"), 
+           y = c(2750, 2215), 
+           label =c("80%CI", "90%CI"))
+```
+
