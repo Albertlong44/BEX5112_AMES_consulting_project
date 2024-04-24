@@ -12,6 +12,7 @@ library(shinyWidgets)
 library(DT)
 library(readxl)
 library(shinycssloaders)
+library(tools)
 
 # Part B read data & wrangling
 prod_exp<- read.csv("data/production.csv")
@@ -26,18 +27,7 @@ d_transporation<-read_excel("data/price_ratecard.xlsx", sheet = "transportation"
 storage<-read_excel("data/price_ratecard.xlsx", sheet = "storage")
 
 ## Mutate the data
-example_mt<-example %>% mutate(Profit = Wholesale.price-COGs, ## Calculate the Cost
-                               Month =yearmonth(Month), ## Convert to year month
-                               Vm= if_else(Packaging.type=="Without packaging", 
-                                           Length.cm*Height.cm*Width.cm/6000,
-                                           Packaging.Length*Packaging.width*Packaging.height/6000), 
-                               Charge_weight= if_else(Vm>Actual.weight.kg, Vm,Actual.weight.kg ),                                        upcome_order= Forecast.demand - Occupied.quantity,
-                               cbm= if_else( upcome_order*Charge_weight<0, 0,
-                                             upcome_order*Charge_weight/1000000), ## CBM calculation
-                               pkg_air_vol= if_else(Packaging.type=="Without packaging",
-                                                    Product.volume.cm./(  Length.cm* Height.cm*Width.cm),
-                                                    Product.volume.cm./(Packaging.Length*Packaging.width*Packaging.height)),                                   pkg_utilization= 100- round(pkg_air_vol*upcome_order*100/1000000,digits=3)
-)
+
 
 prod_exp_clear<- prod_exp %>% 
   mutate(Yearmonth=yearmonth(Yearmonth)) %>% 
@@ -189,6 +179,20 @@ ui <- dashboardPage(
               sidebarLayout(
                 
               sidebarPanel(
+                fileInput("file1", "Choose CSV File", accept = ".csv"),
+                fluidRow(
+                column(width =6,
+                radioButtons("filetype", "File type:", 
+                             choices =c(CSV="csv",Excel ="xlsx"), inline =TRUE)),
+                column(width =6,
+                downloadBttn(
+                  outputId = "downloadData",
+                  label ="template",
+                  size = "xs",
+                  style = "bordered",
+                  color = "primary"
+                ))
+                ),
                selectizeInput("container","Container type:",
                 choices=container_list,
                 selected = 67,  # Corrected value
@@ -235,28 +239,59 @@ ui <- dashboardPage(
 
 ## Part D server setup
 server <- function(input, output) { 
-output$DTmodel<- renderDT({
+  
+  data <- reactive({
+    if (is.null(input$file1)) {
+    # If no file is uploaded, use iris dataset
+    example
+  } else {
+    file <- input$file1
+    ext <- tools::file_ext(file$datapath)
     
-  ## Summarise the mean
-  example_sum<-example_mt  %>%
+    req(file)
+    validate(need(ext == input$filetype, "Please upload a csv file"))
+    
+    read.csv(file$datapath, header = TRUE)
+  }
+  
+  })
+  
+output$DTmodel<- renderDT({
+  
+  
+  ## Data wranggling
+  example_mt<- data() %>% mutate(Profit = Wholesale.price-COGs, ## Calculate the Cost
+                                 Month =yearmonth(Month), ## Convert to year month
+                                 Vm= if_else(Packaging.type=="Without packaging", 
+                                             Length.cm*Height.cm*Width.cm/6000,
+                                             Packaging.Length*Packaging.width*Packaging.height/6000), 
+                                 Charge_weight= if_else(Vm>Actual.weight.kg, Vm,Actual.weight.kg ),                                        upcome_order= Forecast.demand - Occupied.quantity,
+                                 cbm=  Forecast.demand*Charge_weight/1000000,# CBM calculation
+                                 pkg_air_vol= if_else(Packaging.type=="Without packaging",
+                                                      Product.volume.cm./(  Length.cm* Height.cm*Width.cm),
+                                                      Product.volume.cm./(Packaging.Length*Packaging.width*Packaging.height)),                                   pkg_utilization= 100- round(pkg_air_vol*upcome_order*100/1000000,digits=3)
+  )
+
+ ## Summarise the mean
+  example_sum<-example_mt %>%
     group_by(Supplier.Factory.code,Region) %>% 
     summarise(consolidated_cbm =sum(cbm),
               consolidated_pkg_utilization =weighted.mean(pkg_utilization,cbm) )
-  
   ## Join the data
   example_join<-left_join(example_mt, example_sum,
                           by = c("Supplier.Factory.code", "Region"))   %>% 
     mutate(allocation_result_node1 = case_when( 
-      cbm == 0 ~"No replenishment orders required",
+      cbm <= 0 ~" Wrong predictive orders or dimension detected",
       Region == "MEL" & cbm>0  ~ "NDC",
-      Region != "MEL"& consolidated_cbm >= input$container ~ "RDC",
-      Region != "MEL"& consolidated_cbm < input$container  & consolidated_cbm>0 ~ "Other strategy to wait for FCL consolidation",
+      Region != "MEL"& consolidated_cbm >= input$container~ "RDC",
+      Region != "MEL"& consolidated_cbm <  input$container & consolidated_cbm>0 ~ "Other strategy to wait for FCL consolidation",
       TRUE ~ NA_character_
     ),
-    Warning_message= case_when( cbm == 0 ~"Warning:No replenishment orders required",
-                                allocation_result_node1=="Other strategy to wait for FCL consolidation"~ "Warning: The maxmium of  consolidation cannot fulfillFCL. Other strategy  is required",
-                                consolidated_pkg_utilization<=input$airvol~" Warning: This batch of shipment carries highair volumes."))
+    Warning_message= case_when( cbm <= 0 ~" Wrong predictive orders or dimension detected, please check your data.",
+                                allocation_result_node1=="Other strategy to wait for FCL consolidation"~ "Warning: The maximium of  consolidation cannot fulfill FCL. Other strategy  is required",
+                                consolidated_pkg_utilization<=input$airvol ~" Warning: This batch of shipment carries highair volumes."))
   
+  ## Node2 cost&profit study
   example_cost_stdy <- example_join %>%
     filter(allocation_result_node1=="RDC") %>% 
     left_join(sea_freight, by =c("POL","Region","Sensitivity")) %>% 
@@ -265,26 +300,30 @@ output$DTmodel<- renderDT({
   
   
   example_cost_study_result<- example_cost_stdy %>% 
-    mutate( Rev = Profit* upcome_order,
+    mutate( Rev = Profit* Forecast.demand,
             Cost = cbm*(`Sea freight Cost per Cubic Meter`+`Land truck Cost per Cubic Meter`+`Inventory Cost per Cubic Meter per day` + `Other fixed_miscellaneous`),
-            Profit_earned= round((Rev-Cost)/(Wholesale.price*upcome_order)*100, digits=2 ),
+            Profit_earned= round((Rev-Cost)/(Wholesale.price*Forecast.demand)*100, digits=2 ),
             allocation_result_node2=if_else(Profit_earned>=input$profit, "RDC","NDC") )
   
   
+  ## Combine the result
   example_final_result<- left_join( example_join, example_cost_study_result
-                                    %>% select( Product.code, Region,  allocation_result_node2), 
+                                    %>% select( Product.code, Region, Profit_earned, allocation_result_node2), 
                                     by = c("Product.code", "Region") ) %>% 
     mutate( allocation_result_final =if_else(is.na(allocation_result_node2),
                                              allocation_result_node1,allocation_result_node2))
   
   Sys.sleep(2)
+  
   tb_model<-  example_final_result %>% rename(`Product code`=Product.code,
                                               `Short description` =Short.description,
-                                              Brand =Brand_name,
+                                              `Consol CBM` =consolidated_cbm,
+                                              `Net profit` =Profit_earned,
+                                               Brand =Brand_name,
                                               `Allocation reult`=allocation_result_final,
                                               `Warning message`=Warning_message)%>%
     mutate(Month =as.character(Month)) %>%
-    select(`Product code`,`Short description`,Brand, Month,Region,`Allocation reult`,`Warning message`) %>% 
+    select(`Product code`,Brand, Month,Region,`Consol CBM`,`Net profit` ,`Allocation reult`,`Warning message`) %>% 
     datatable(
       callback=JS('
     $("button.buttons-copy").css({
@@ -319,17 +358,22 @@ output$DTmodel<- renderDT({
           "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
           "}")))%>% formatStyle(
             c("Allocation reult","Warning message"), "white-space" = "pre-line"
-          ) %>% formatStyle("Warning message",
-                            color = "red")
-  
-  return(tb_model)
-  
+          ) %>% formatStyle("Warning message", 
+                            color = "red") %>%
+    formatRound(c("Net profit","Consol CBM"),digits = 2)
 })
 
-
-
- 
+output$downloadData <- downloadHandler(
+  filename = function() {
+    # Use the selected dataset as the suggested file name
+    paste0("template_", Sys.Date(), ".csv")
+  },
+  content = function(file) {
+    write.csv(example, file)
   }
+)
+
+}
 
 shinyApp(ui, server)
 

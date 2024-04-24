@@ -10,7 +10,6 @@
   background-size: cover; /* Adjust as needed */
   background-repeat: no-repeat;
   background-color: #f2f2f2; /* Backup color in case the image doesn't load */
-  height: 100px; /* Set the desired height */
 }
 
 
@@ -38,4 +37,10 @@ form.well{
 margin-left: 20px;
 }
 
+button#downloadData_bttn {
+    background-color: crimson;
+    font-weight: bold;
+    color: white;
+    margin-top: 15px;
+    margin-left: 10px;
 }

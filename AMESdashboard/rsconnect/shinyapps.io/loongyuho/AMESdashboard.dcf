@@ -1,0 +1,14 @@
+name: AMESdashboard
+title:
+username:
+account: loongyuho
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 11782551
+bundleId: 8512503
+url: https://loongyuho.shinyapps.io/AMESdashboard/
+when: 1713479537.65416
+lastSyncTime: 1713479537.65417
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: data/example.csv|data/example.xlsx|data/header.png|data/price_ratecard.xlsx|data/production.csv|monashreport.css|profile.html
