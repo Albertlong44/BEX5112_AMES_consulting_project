@@ -200,12 +200,12 @@ ui <- dashboardPage(
                 br(),
                setSliderColor(c("#FF4500" , "Teal"), c(1, 2)),
                sliderInput("profit",
-                           "Profit threshold:",
+                           "Profit threshold(%):",
                            min = 0,
                            max = 100,
                            value = 10),
                sliderInput("airvol",
-                           "Space utilization:",
+                           "Space utilization(%):",
                            min = 0,
                            max = 100,
                            value = 80)
@@ -284,7 +284,7 @@ output$DTmodel<- renderDT({
       cbm <= 0 ~" Wrong predictive orders or dimension detected",
       Region == "MEL" & cbm>0  ~ "NDC",
       Region != "MEL"& consolidated_cbm >= input$container~ "RDC",
-      Region != "MEL"& consolidated_cbm <  input$container & consolidated_cbm>0 ~ "Other strategy to wait for FCL consolidation",
+      Region != "MEL"& consolidated_cbm < input$container & consolidated_cbm>0 ~ "Other strategy to wait for FCL consolidation",
       TRUE ~ NA_character_
     ),
     Warning_message= case_when( cbm <= 0 ~" Wrong predictive orders or dimension detected, please check your data.",
@@ -292,33 +292,30 @@ output$DTmodel<- renderDT({
                                 consolidated_pkg_utilization<=input$airvol ~" Warning: This batch of shipment carries highair volumes."))
   
   ## Node2 cost&profit study
-  example_cost_stdy <- example_join %>%
-    filter(allocation_result_node1=="RDC") %>% 
+  example_cost_stdy <- example_join %>% 
     left_join(sea_freight, by =c("POL","Region","Sensitivity")) %>% 
     left_join(d_transporation, by = c("Region" = "Destination")) %>% 
     left_join(storage, by=c("Region" = "Facility"))
   
-  
-  example_cost_study_result<- example_cost_stdy %>% 
-    mutate( Rev = Profit* Forecast.demand,
-            Cost = cbm*(`Sea freight Cost per Cubic Meter`+`Land truck Cost per Cubic Meter`+`Inventory Cost per Cubic Meter per day` + `Other fixed_miscellaneous`),
-            Profit_earned= round((Rev-Cost)/(Wholesale.price*Forecast.demand)*100, digits=2 ),
-            allocation_result_node2=if_else(Profit_earned>=input$profit, "RDC","NDC") )
-  
-  
   ## Combine the result
-  example_final_result<- left_join( example_join, example_cost_study_result
-                                    %>% select( Product.code, Region, Profit_earned, allocation_result_node2), 
-                                    by = c("Product.code", "Region") ) %>% 
-    mutate( allocation_result_final =if_else(is.na(allocation_result_node2),
-                                             allocation_result_node1,allocation_result_node2))
+  example_final_result<- example_cost_stdy %>%
+    mutate( Rev = Profit* Forecast.demand,
+            Reg_cost =  cbm*(`Sea freight Cost per Cubic Meter`+`Land truck Cost per Cubic Meter`+`Inventory Cost per Cubic Meter per day` + `Other fixed_miscellaneous`),
+            NDC_cost= cbm*(`NDC Inventory`+`NDC Miscellenous`+ `NDC sea freight`),
+            Profit_Rec =if_else(allocation_result_node1 =="RDC", 
+                                (Rev-Reg_cost)/(Wholesale.price*Forecast.demand)*100,NA ),
+            Profit_NDC =(Rev-NDC_cost)/(Wholesale.price*Forecast.demand)*100,
+            allocation_result_node2=if_else(Profit_NDC -Profit_Rec >=10, "NDC","RDC"),
+            allocation_result_final =if_else(is.na(allocation_result_node2), allocation_result_node1,allocation_result_node2),
+            Final_profit =if_else(allocation_result_final=="RDC",Profit_Rec, Profit_NDC) )
+  
   
   Sys.sleep(2)
-  
   tb_model<-  example_final_result %>% rename(`Product code`=Product.code,
                                               `Short description` =Short.description,
+                                              Brand =Brand_name,
                                               `Consol CBM` =consolidated_cbm,
-                                              `Net profit` =Profit_earned,
+                                              `Net profit` =Final_profit ,
                                               `Allocation reult`=allocation_result_final,
                                               `Warning message`=Warning_message)%>%
     mutate(Month =as.character(Month)) %>%
@@ -361,7 +358,9 @@ output$DTmodel<- renderDT({
             c("Allocation reult","Warning message"), "white-space" = "pre-line"
           ) %>% formatStyle("Warning message", 
                             color = "red") %>%
-    formatRound(c("Net profit","Consol CBM"),digits = 2)
+    formatRound(c("Net profit","Consol CBM"),digits = 2)%>% 
+    formatString("Consol CBM", suffix= HTML(' m<sup>3</sup>')) %>% 
+    formatCurrency("Net profit")
 })
 
 output$downloadData <- downloadHandler(
