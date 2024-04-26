@@ -47,7 +47,7 @@ product_list<-unique(prod_exp_clear$Product)
 
 model_list<-c("ARIMA","ETS","Rolling average")
 
-container_list<-c("40FT High-cube"=76,"20FT Standard"=33,"40FT Standard"=67,"20FT High-cube"=37)
+container_list<-c("40FT High-cube"=76*0.8,"20FT Standard"=33*0.8,"40FT Standard"=67*0.8,"20FT High-cube"=37*0.8)
 
 
 ## Function
@@ -195,7 +195,7 @@ ui <- dashboardPage(
                 ),
                selectizeInput("container","Container type:",
                 choices=container_list,
-                selected = 67,  # Corrected value
+                selected = 67*0.8,  # Corrected value
                 multiple = FALSE),
                 br(),
                setSliderColor(c("#FF4500" , "Teal"), c(1, 2)),
@@ -273,24 +273,33 @@ output$DTmodel<- renderDT({
   )
 
  ## Summarise the mean
-  example_sum<-example_mt %>%
+  example_sum<-example_mt  %>%
     group_by(Supplier.Factory.code,Region) %>% 
     summarise(consolidated_cbm =sum(cbm),
               consolidated_pkg_utilization =weighted.mean(pkg_utilization,cbm) )
+  
   ## Join the data
   example_join<-left_join(example_mt, example_sum,
                           by = c("Supplier.Factory.code", "Region"))   %>% 
-    mutate(allocation_result_node1 = case_when( 
-      cbm <= 0 ~" Wrong predictive orders or dimension detected",
+    mutate(allocation_result_node_pr = case_when( 
+      cbm <= 0 ~" No or wrong predictive orders detected",
       Region == "MEL" & cbm>0  ~ "NDC",
-      Region != "MEL"& consolidated_cbm >= input$container~ "RDC",
-      Region != "MEL"& consolidated_cbm < input$container & consolidated_cbm>0 ~ "Other strategy to wait for FCL consolidation",
+      Region != "MEL"& consolidated_cbm >= input$container ~ "RDC",
+      Region != "MEL"& consolidated_cbm <  input$container & consolidated_cbm>0 ~ "Other strategy to wait for FCL consolidation",
       TRUE ~ NA_character_
-    ),
-    Warning_message= case_when( cbm <= 0 ~" Wrong predictive orders or dimension detected, please check your data.",
-                                allocation_result_node1=="Other strategy to wait for FCL consolidation"~ "Warning: The maximium of  consolidation cannot fulfill FCL. Other strategy  is required",
-                                consolidated_pkg_utilization<=input$airvol ~" Warning: This batch of shipment carries highair volumes."))
+    ))
   
+  example_sum_ndc<-example_join %>% filter(allocation_result_node_pr !="RDC") %>%  
+    group_by(Supplier.Factory.code) %>%
+    summarise(consolidated_cbm_ndc =sum(cbm))
+  
+  example_join<- left_join(example_join, example_sum_ndc,  by = c("Supplier.Factory.code"))%>% 
+    mutate(allocation_result_node1 = case_when( 
+      allocation_result_node_pr %in% c("NDC","Other strategy to wait for FCL consolidation") & consolidated_cbm >40 ~ "NDC",
+      TRUE~allocation_result_node_pr),
+      Warning_message= case_when( cbm <= 0 ~"No or wrong predictive orders detected, please check your data.",
+                                  allocation_result_node1=="Other strategy to wait for FCL consolidation"~ "Warning: The maximium of  consolidation cannot fulfill FCL. Other strategy  is required",
+                                  consolidated_pkg_utilization<= input$airvol ~" Warning: This batch of shipment carries highair volumes."))
   ## Node2 cost&profit study
   example_cost_stdy <- example_join %>% 
     left_join(sea_freight, by =c("POL","Region","Sensitivity")) %>% 
@@ -305,7 +314,7 @@ output$DTmodel<- renderDT({
             Profit_Rec =if_else(allocation_result_node1 =="RDC", 
                                 (Rev-Reg_cost)/(Wholesale.price*Forecast.demand)*100,NA ),
             Profit_NDC =(Rev-NDC_cost)/(Wholesale.price*Forecast.demand)*100,
-            allocation_result_node2=if_else(Profit_NDC -Profit_Rec >=10, "NDC","RDC"),
+            allocation_result_node2=if_else(Profit_NDC -Profit_Rec >=input$profit, "NDC","RDC"),
             allocation_result_final =if_else(is.na(allocation_result_node2), allocation_result_node1,allocation_result_node2),
             Final_profit =if_else(allocation_result_final=="RDC",Profit_Rec, Profit_NDC) )
   
