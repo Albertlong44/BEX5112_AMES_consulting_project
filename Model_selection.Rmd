@@ -131,4 +131,20 @@ ggplot(data = forecast_dt) +geom_line( data = rbind_dt, aes( x = Quarter,  y = C
            y = c(2750, 2215), 
            label =c("80%CI", "90%CI"))
 ```
+```{r}
+prod_exp_tsb
+```
+
+```{r}
+prod_exp_tsb |>
+      model(STL( Volume~ trend(window =5)+season( window ="periodic")))  %>% components() %>% autoplot()+
+      theme_bw() + 
+      scale_color_discrete_sequential(palette = "Hawaii", 
+                                      labels = unique(prod_exp_tsb$Product))+
+      theme(strip.background = element_rect(fill = "#90EE90"),
+            strip.text.x = element_text(size = 12, face ="bold"))
+
+
+ rbind_dt<-rbind(as.tibble(cement_production)%>% select(Quarter, Cement), forecast_dt %>%select(Quarter, Cement))
+```
 
