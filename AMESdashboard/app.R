@@ -12,6 +12,7 @@ library(shinyWidgets)
 library(DT)
 library(readxl)
 library(shinycssloaders)
+library(colorspace)
 library(tools)
 
 # Part B read data & wrangling
@@ -36,7 +37,7 @@ region_list<- unique(prod_exp$Region)
 
 model_list<-c("ARIMA","ETS","Rolling average")
 
-container_list<-c("40FT High-cube"=76*0.8,"20FT Standard"=33*0.8,"40FT Standard"=67*0.8,"20FT High-cube"=37*0.8)
+container_list<-c("40FT High-cube"=76,"20FT Standard"=33,"40FT Standard"=67,"20FT High-cube"=37)
 
 
 ## Function
@@ -118,78 +119,78 @@ ui <- dashboardPage(
               br(),
               br(),
               fluidRow(width =12,
-                column(width =3,
-                       dropdownButton(
-                         inputId = "dropdown_product",
-                         label ="Product",
-                         circle=FALSE,
-                         icon= icon("screwdriver-wrench"),
-                         status ="warning",
-                         selectizeInput("product","Products:",
-                                        choices = product_list,
-                                        selected =product_list[1],
-                                        multiple= TRUE) )    
-                ),
-                
-                column(width =3,
-                       dropdownButton(
-                         inputId = "dropdown_region",
-                         label ="region",
-                         circle=FALSE,
-                         icon= icon("earth-asia"),
-                         status ="warning",
-                         selectizeInput("region","Choices:",
-                                        choices = region_list,
-                                        selected =region_list[1],
-                                        multiple= FALSE) ) 
+                       column(width =3,
+                              dropdownButton(
+                                inputId = "dropdown_product",
+                                label ="Product",
+                                circle=FALSE,
+                                icon= icon("screwdriver-wrench"),
+                                status ="warning",
+                                selectizeInput("product","Products:",
+                                               choices = product_list,
+                                               selected =product_list[1],
+                                               multiple= TRUE) )    
+                       ),
                        
-                ),
-                column(width =3,
-                       dropdownButton(
-                         inputId = "dropdown_model",
-                         label ="Model",
-                         circle=FALSE,
-                         icon= icon("chart-column"),
-                         status ="warning",
-                         selectizeInput("model","Choices:",
-                                        choices = model_list,
-                                        selected ="ETS",
-                                        multiple= FALSE)  ) 
-                )
-                
+                       column(width =3,
+                              dropdownButton(
+                                inputId = "dropdown_region",
+                                label ="region",
+                                circle=FALSE,
+                                icon= icon("earth-asia"),
+                                status ="warning",
+                                selectizeInput("region","Choices:",
+                                               choices = region_list,
+                                               selected =region_list[1],
+                                               multiple= FALSE) ) 
+                              
+                       ),
+                       column(width =3,
+                              dropdownButton(
+                                inputId = "dropdown_model",
+                                label ="Model",
+                                circle=FALSE,
+                                icon= icon("chart-column"),
+                                status ="warning",
+                                selectizeInput("model","Choices:",
+                                               choices = model_list,
+                                               selected ="ETS",
+                                               multiple= FALSE)  ) 
+                       )
+                       
               ), ## fluidrow end bracket
               br(),
               br(),
               box(width =10, status ="success", title ="Pattern learning",  collapsible = FALSE, solidHeader = TRUE,
                   h3('Overall trend:'),
-                 numericInputIcon("dygraphperiod","Period:", value=36, min = 1, max = 120, 
-                                  icon =icon("sliders"), width ='30%'), 
-                 withSpinner(dygraphOutput("dygraphresult")),
-              br(),
-              br(),
-              h3("Seasonality breakdown:"),
-              selectizeInput("seasontype","Season type:", 
-                             choices =c("Month", "Quarter"),
-                             selected= "Month",
-                             width ='30%'),
-              withSpinner(plotlyOutput("seasonalityresult"))
+                  numericInputIcon("dygraphperiod","Period:", value=36, min = 1, max = 120, 
+                                   icon =icon("sliders"), width ='30%'), 
+                  withSpinner(dygraphOutput("dygraphresult")),
+                  br(),
+                  br(),
+                  h3("Seasonality breakdown:"),
+                  selectizeInput("seasontype","Season type:", 
+                                 choices =c("Month", "Quarter"),
+                                 selected= "Month",
+                                 width ='30%'),
+                  withSpinner(plotlyOutput("seasonalityresult"))
               ), # box end bracket
-         br(),
-         br(),
-        
-         box(width =10, status ="primary", title ="Demand forecasting",  collapsible = FALSE, solidHeader = TRUE,
-             h3('Seasonal/Trend/Residual decomposition'),
-         
-             selectizeInput("seasontypestl","Season type:", 
-                            choices =c("Month", "Quarter", "Year"),
-                            selected= "Month",
-                            width ='30%'),
-             withSpinner( plotOutput("stlresult")),
-             h3('Model prediction:'),
-             numericInputIcon("dforeperiod","Prediction period:", value=6, min = 1, max = 20, 
-                              icon =icon("sliders"), width ='30%'),
-             withSpinner( plotlyOutput("modelresult"))
-         )    
+              br(),
+              br(),
+              
+              box(width =10, status ="primary", title ="Demand forecasting",  collapsible = FALSE, solidHeader = TRUE,
+                  h3('Seasonal/Trend/Residual decomposition'),
+                  
+                  selectizeInput("seasontypestl","Season type:", 
+                                 choices =c("Month", "Quarter", "Year"),
+                                 selected= "Month",
+                                 width ='30%'),
+                  withSpinner( plotOutput("stlresult")),
+                  h3('Model prediction:'),
+                  numericInputIcon("dforeperiod","Prediction period:", value=6, min = 1, max = 20, 
+                                   icon =icon("sliders"), width ='30%'),
+                  withSpinner( plotlyOutput("modelresult"))
+              )    
               
       ), # End basket of dfore tab
       
@@ -225,15 +226,15 @@ ui <- dashboardPage(
                   ),
                   selectizeInput("container","Container type:",
                                  choices=container_list,
-                                 selected = 67*0.8,  # Corrected value
+                                 selected = 67,  # Corrected value
                                  multiple = FALSE),
                   br(),
                   setSliderColor(c("#FF4500" , "Teal"), c(1, 2)),
-                  sliderInput("profit",
-                              "Profit threshold(%):",
+                  sliderInput("cost",
+                              "Cost difference threshold(%):",
                               min = 0,
-                              max = 100,
-                              value = 10),
+                              max = 30,
+                              value = 5),
                   sliderInput("airvol",
                               "Space utilization(%):",
                               min = 0,
@@ -270,6 +271,8 @@ ui <- dashboardPage(
 ## Part D server setup
 server <- function(input, output) { 
   
+
+  
   data_example <- reactive({
     if (is.null(input$file1)) {
       # If no file is uploaded, use iris dataset
@@ -304,7 +307,7 @@ server <- function(input, output) {
       ts( start = c(prod_exp_dygraph$Year[1],
                     prod_exp_dygraph$Month.num[1] ), 
           frequency =12)
-   
+    
     ## The start/end date of filtering
     
     startdate<- paste0(prod_exp_dygraph_tail$Year[1],"-",  prod_exp_dygraph_tail$Month.num[1],"-01")
@@ -315,10 +318,10 @@ server <- function(input, output) {
     Sys.sleep(1)
     
     ##Convert to dygraph 
-  dygraph_plot<-dygraph(prod_exp_dygraph_ts) |>
-    dyRangeSelector(dateWindow= c(startdate,  enddate))
+    dygraph_plot<-dygraph(prod_exp_dygraph_ts) |>
+      dyRangeSelector(dateWindow= c(startdate,  enddate))
     
-   return(  dygraph_plot)
+    return(  dygraph_plot)
     
     
   })
@@ -343,13 +346,13 @@ server <- function(input, output) {
     Sys.sleep(1)
     ## Create a sub-series plot
     season_plot<-prod_exp_tsb |>  
-               gg_subseries( Volume)+ 
-                  theme_bw()+
-                   labs(y = " ",x ="\n season") +
-                    theme(strip.background = element_rect(fill = "#90EE90"),
-                          strip.text.x = element_text(size = 12, face ="bold"),
-                          strip.text.y= element_text(size = 8),
-                          axis.text.x =element_text( angle =-45, hjust =-0.5) )
+      gg_subseries( Volume)+ 
+      theme_bw()+
+      labs(y = " ",x ="\n season") +
+      theme(strip.background = element_rect(fill = "#90EE90"),
+            strip.text.x = element_text(size = 12, face ="bold"),
+            strip.text.y= element_text(size = 8),
+            axis.text.x =element_text( angle =-45, hjust =-0.5) )
     
     ## Convert plotly to interactive plot
     ggplotly(season_plot) |>
@@ -367,7 +370,7 @@ server <- function(input, output) {
                              "Month" = yearmonth,
                              "Quarter" = yearquarter,
                              "Year" = function(x) year(yearmonth(x))
-                             )
+    )
     
     ## Convert to tsibble function
     prod_exp_tsb<-prod_exp |>
@@ -431,96 +434,117 @@ server <- function(input, output) {
     
     
     Sys.sleep(1)
-
+    
     predictplot<-ggplot(data = forecast_result) +
-                    geom_line(data=prod_exp_bind, 
-                              aes(season, Volume,color =Product), 
-                              size =0.8,linetype ="dotdash") +
-                   theme_bw() +
-                   geom_ribbon( aes(x = season, ymin =low80,  
-                                    ymax =high80,fill = Product ), alpha =0.8) + 
-                    geom_ribbon( aes(x = season, ymin =low90, 
-                                     ymax =high90, fill = Product ), alpha =0.2) + 
-                        scale_fill_discrete_qualitative(palette ="Dynamic") +
-                  geom_line( aes( season, Volume,color =Product),  size =0.8)
+      geom_line(data=prod_exp_bind, 
+                aes(season, Volume,color =Product), 
+                size =0.8,linetype ="dotdash") +
+      theme_bw() +
+      geom_ribbon( aes(x = season, ymin =low80,  
+                       ymax =high80,fill = Product ), alpha =0.8) + 
+      geom_ribbon( aes(x = season, ymin =low90, 
+                       ymax =high90, fill = Product ), alpha =0.2) + 
+      scale_fill_discrete_qualitative(palette ="Dynamic") +
+      geom_line( aes( season, Volume,color =Product),  size =0.8)
     
     ggplotly(predictplot) 
   })
   
   output$DTmodel<- renderDT({
     
+    ## call the value of the vector
+
+    
     
     ## Data wranggling
-    example_mt<- data_example() |> mutate(Profit = Wholesale.price-COGs, ## Calculate the Cost
-                                   Month =yearmonth(Month), ## Convert to year month
-                                   Vm= if_else(Packaging.type=="Without packaging", 
-                                               Length.cm*Height.cm*Width.cm/6000,
-                                               Packaging.Length*Packaging.width*Packaging.height/6000), 
-                                   Charge_weight= if_else(Vm>Actual.weight.kg, Vm,Actual.weight.kg ), 
-                                   cbm=  Forecast.demand*Charge_weight/1000000,# CBM calculation
-                                   pkg_air_vol= if_else(Packaging.type=="Without packaging",
-                                                        Product.volume.cm./(  Length.cm* Height.cm*Width.cm),
-                                                        Product.volume.cm./(Packaging.Length*Packaging.width*Packaging.height)),
-                                  pkg_utilization= 100- round(pkg_air_vol*upcome_order*100/1000000,digits=3)
+    example_mt<- data_example()  |> mutate(Profit = Wholesale.price-COGs, ## Calculate the Cost
+                                           Month =yearmonth(Month), ## Convert to year month
+                                           Vm= if_else(Packaging.type=="Without packaging", 
+                                                       Length.cm*Height.cm*Width.cm/6000,
+                                                       Packaging.Length*Packaging.width*Packaging.height/6000), 
+                                           Charge_weight= if_else(Vm>Actual.weight.kg, Vm,Actual.weight.kg ), 
+                                           cbm=  Forecast.demand*Charge_weight/1000000,# CBM calculation
+                                           leftover_space = (1-cbm/ as.numeric(input$container ))*100,
+                                           pkg_air_vol= if_else(Packaging.type=="Without packaging",
+                                                                Product.volume.cm./(  Length.cm* Height.cm*Width.cm),Product.volume.cm./(Packaging.Length*Packaging.width*Packaging.height)),
+                                           pkg_utilization= 100- round(pkg_air_vol*Forecast.demand*100/1000000,digits=3)
     )
     
+    
+      
+      
     ## Summarise the mean
     example_sum<-example_mt  |>
       group_by(Supplier.Factory.code,Region) |> 
-      summarise(consolidated_cbm =sum(cbm),
-                consolidated_pkg_utilization =weighted.mean(pkg_utilization,cbm) )
+      summarise(consolidated_cbm = round(sum(cbm),digits =2),
+                consolidated_pkg_utilization =weighted.mean(pkg_utilization,cbm) ) 
     
     ## Join the data
     example_join<-left_join(example_mt, example_sum,
-                            by = c("Supplier.Factory.code", "Region"))   |> 
+                            by = c("Supplier.Factory.code", "Region")) |>
       mutate(allocation_result_node_pr = case_when( 
         cbm <= 0 ~" No or wrong predictive orders detected",
-        Region == "MEL" & cbm>0  ~ "NDC",
-        Region != "MEL"& consolidated_cbm >= input$container ~ "RDC",
-        Region != "MEL"& consolidated_cbm <  input$container & consolidated_cbm>0 ~ "Other strategy to wait for FCL consolidation",
+        Region == "MEL" & cbm>0  ~ "NDC check",
+        Region != "MEL"& cbm >=  input$container  ~ "RDC: FCL for single sku",
+        Region != "MEL"& cbm<  input$container   &leftover_space>0 & leftover_space<=5 ~ "RDC: FCL for single sku",
+        Region != "MEL"& cbm <  input$container  & consolidated_cbm >=  input$container   &leftover_space>5 ~"RDC: FCL for consolidated sku",
+        Region != "MEL"& consolidated_cbm <  input$container  ~"NDC check",
         TRUE ~ NA_character_
-      ))
+      ),  Warning_message= case_when( cbm <= 0 ~"No or wrong predictive orders detected, please check your data.",
+                                      consolidated_pkg_utilization<= input$airvol ~" Warning: This batch of shipment carries highair volumes.",
+                                      leftover_space>0 & leftover_space<=5  ~"Warning: The current CBM delivery is just below the FCL threshold. Consider adjusting the volume quantity to meet the FCL requirement.")
+      
+      ) 
+    ##NDC round check  
     
-    example_sum_ndc<-example_join |> filter(allocation_result_node_pr !="RDC") |>  
+    example_sum_ndc<-example_join |> filter(allocation_result_node_pr =="NDC check") |>  
       group_by(Supplier.Factory.code) |>
-      summarise(consolidated_cbm_ndc =sum(cbm))
+      summarise(consolidated_cbm_ndc =sum(cbm))|> ungroup()
     
-    example_join<- left_join(example_join, example_sum_ndc,  by = c("Supplier.Factory.code"))|> 
-      mutate(allocation_result_node1 = case_when( 
-        allocation_result_node_pr %in% c("NDC","Other strategy to wait for FCL consolidation") & consolidated_cbm >40 ~ "NDC",
-        TRUE~allocation_result_node_pr),
-        Warning_message= case_when( cbm <= 0 ~"No or wrong predictive orders detected, please check your data.",
-                                    allocation_result_node1=="Other strategy to wait for FCL consolidation"~ "Warning: The maximium of  consolidation cannot fulfill FCL. Other strategy  is required",
-                                    consolidated_pkg_utilization<= input$airvol ~" Warning: This batch of shipment carries highair volumes."))
-    ## Node2 cost&profit study
-    example_cost_stdy <- example_join |> 
+    
+    example_join<- left_join(example_join, example_sum_ndc,  by = c("Supplier.Factory.code")) |> 
+      mutate(
+        allocation_result_node1 = case_when( 
+          allocation_result_node_pr == "NDC check" & cbm >= input$container  ~ "NDC: FCL for single sku",
+          allocation_result_node_pr == "NDC check" & cbm <  input$container   & leftover_space > 0 & leftover_space <= 5 ~ "NDC: FCL for single sku",
+          allocation_result_node_pr == "NDC check" & cbm <  input$container  & leftover_space > 5 & consolidated_cbm_ndc >= input$container  ~ "NDC: FCL for consolidated sku",
+          allocation_result_node_pr == "NDC check" & consolidated_cbm_ndc <  input$container  ~ "Other strategy to wait for FCL consolidation",
+          TRUE~allocation_result_node_pr
+        ),
+        Warning_message= if_else(allocation_result_node1 =="Other strategy to wait for FCL consolidation",
+                                 "Warning: The maximium of  consolidation cannot fulfill FCL. Other strategy  is required", Warning_message)
+        
+      )
+    
+    
+    ## Cost analysis
+    example_cost_study <- example_join |> 
       left_join(sea_freight, by =c("POL","Region","Sensitivity")) |> 
       left_join(d_transporation, by = c("Region" = "Destination")) |> 
       left_join(storage, by=c("Region" = "Facility"))
     
-    ## Combine the result
-    example_final_result<- example_cost_stdy |>
-      mutate( Rev = Profit* Forecast.demand,
-              Reg_cost =  cbm*(`Sea freight Cost per Cubic Meter`+`Land truck Cost per Cubic Meter`+`Inventory Cost per Cubic Meter per day` + `Other fixed_miscellaneous`),
-              NDC_cost= cbm*(`NDC Inventory`+`NDC Miscellenous`+ `NDC sea freight`),
-              Profit_Rec =if_else(allocation_result_node1 =="RDC", 
-                                  (Rev-Reg_cost)/(Wholesale.price*Forecast.demand)*100,NA ),
-              Profit_NDC =(Rev-NDC_cost)/(Wholesale.price*Forecast.demand)*100,
-              allocation_result_node2=if_else(Profit_NDC -Profit_Rec >=input$profit, "NDC","RDC"),
-              allocation_result_final =if_else(is.na(allocation_result_node2), allocation_result_node1,allocation_result_node2),
-              Final_profit =if_else(allocation_result_final=="RDC",Profit_Rec, Profit_NDC) )
     
+    ## Result aggregation
+    example_final_result <- example_cost_study |>
+      mutate( 
+        Reg_cost =   as.numeric(input$container )  * (`Sea freight Cost per Cubic Meter` + `Inventory Cost per Cubic Meter per day` + `Other fixed_miscellaneous`),
+        NDC_cost = cbm * (`NDC sea freight` + `Land truck Cost per Cubic Meter`),
+        cost_difference = (NDC_cost - Reg_cost) / Reg_cost,
+        allocation_result_node_final = if_else(Region != "MEL" & cost_difference >= 5 & allocation_result_node1 %in% c("NDC: FCL for single sku", "NDC: FCL for consolidated sku"), "RDC: revise for cost analysis", allocation_result_node1)
+      )
+   
     
     Sys.sleep(2)
+    
     tb_model<-  example_final_result |> rename(`Product code`=Product.code,
-                                                `Short description` =Short.description,
-                                                Brand =Brand_name,
-                                                `Consol CBM` =consolidated_cbm,
-                                                `Net profit` =Final_profit ,
-                                                `Allocation reult`=allocation_result_final,
-                                                `Warning message`=Warning_message)|>
+                                               `Short description` =Short.description,
+                                               Brand =Brand_name,
+                                               `Consol CBM` =consolidated_cbm,
+                                               `Cost diff(%)` =cost_difference ,
+                                               `Allocation reult`= allocation_result_node_final ,
+                                               `Warning message`=Warning_message)|>
       mutate(Month =as.character(Month)) |>
-      select(`Product code`,`Short description`, Month,Region,`Consol CBM`,`Net profit` ,`Allocation reult`,`Warning message`) |> 
+      select(`Product code`,`Short description`, Month,Region,`Consol CBM`,`Cost diff(%)` ,`Allocation reult`,`Warning message`) |> 
       datatable(
         callback=JS('
     $("button.buttons-copy").css({
@@ -558,10 +582,9 @@ server <- function(input, output) {
             "}")))|> formatStyle(
               c("Allocation reult","Warning message"), "white-space" = "pre-line"
             ) |> formatStyle("Warning message", 
-                              color = "red") |>
-      formatRound(c("Net profit","Consol CBM"),digits = 2)|> 
-      formatString("Consol CBM", suffix= HTML(' m<sup>3</sup>')) |> 
-      formatCurrency("Net profit")
+                             color = "red") |>
+      formatRound(c("Cost diff(%)"),digits = 2)|> 
+      formatString("Consol CBM", suffix= HTML(' m<sup>3</sup>')) 
   })
   
   output$downloadData <- downloadHandler(
