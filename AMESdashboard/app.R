@@ -28,6 +28,12 @@ d_transporation<-read_excel("data/price_ratecard.xlsx", sheet = "transportation"
 storage<-read_excel("data/price_ratecard.xlsx", sheet = "storage")
 
 
+AMES_storage<-read.csv("data/AMES_storage.csv")
+
+AMES_dtrans <- read.csv("data/AMES_roadtransportation.csv")
+
+AMES_sf<-read.csv("data/AMES_of.csv")
+
 
 ## preset_list
 
@@ -197,7 +203,105 @@ ui <- dashboardPage(
       tabItem(tabName ="price",
               p(HTML('<h2 style="text-align: center;color:#8b0000;
                      font-weight: bold;
-                     font-family: fantasy; ">AMES Project Report2</h2>'))
+                     font-family: fantasy; ">AMES Project Report2</h2>')),
+              br(),
+              br(),
+              p(HTML('<h3 style="margin-left:20px; font-weight: bold; ">Sea freight cost:</h3>')),
+              br(),
+              br(),
+              sidebarLayout(
+                
+                sidebarPanel(
+                  fileInput("file4", "Choose supported File", accept = ".csv"),
+                  fluidRow(
+                    column(width =6,
+                           radioButtons("filetype4", "File type:", 
+                                        choices =c(CSV="csv",Excel ="xlsx"), inline =TRUE)),
+                    column(width =6,
+                           downloadBttn(
+                             outputId = "downloadData4",
+                             label ="template",
+                             size = "xs",
+                             style = "bordered",
+                             color = "primary"
+                           ))
+                  ) ##End bracket of fluidRow
+                  
+                ),## End bracket of sidebarPanel
+                
+                mainPanel( 
+                  box(width=12,
+                      title = "The summary table of sea freight cost",
+                      status = "success", solidHeader = TRUE, collapsible = TRUE,
+                      withSpinner(DTOutput("sfcost"))
+                  )
+                  
+                ) ##End bracket of mainPanel
+              ),##End bracket of sidebarPanel
+              br(),
+              br(),
+              p(HTML('<h3 style="margin-left:20px; font-weight: bold; ">Storage cost:</h3>')),
+              sidebarLayout(
+                
+               sidebarPanel(
+                 fileInput("file2", "Choose supported File", accept = ".csv"),
+                 fluidRow(
+                   column(width =6,
+                          radioButtons("filetype2", "File type:", 
+                                       choices =c(CSV="csv",Excel ="xlsx"), inline =TRUE)),
+                   column(width =6,
+                          downloadBttn(
+                            outputId = "downloadData2",
+                            label ="template",
+                            size = "xs",
+                            style = "bordered",
+                            color = "primary"
+                          ))
+                 ) ##End bracket of fluidRow
+                 
+                 ),## End bracket of sidebarPanel
+              
+              mainPanel( 
+                box(width=12,
+                    title = "The summary table of storage cost",
+                    status = "success", solidHeader = TRUE, collapsible = TRUE,
+                    withSpinner(DTOutput("storagecost"))
+                )
+                
+                ) ##End bracket of mainPanel
+              ),##End bracket of sidebarPanel
+      br(),
+      br(),
+      p(HTML('<h3 style="margin-left:20px; font-weight: bold; ">Domestic transportation cost:</h3>')),
+      sidebarLayout(
+        
+        sidebarPanel(
+          fileInput("file3", "Choose supported File", accept = ".csv"),
+          fluidRow(
+            column(width =6,
+                   radioButtons("filetype3", "File type:", 
+                                choices =c(CSV="csv",Excel ="xlsx"), inline =TRUE)),
+            column(width =6,
+                   downloadBttn(
+                     outputId = "downloadData3",
+                     label ="template",
+                     size = "xs",
+                     style = "bordered",
+                     color = "primary"
+                   ))
+          ) ##End bracket of fluidRow
+          
+        ),## End bracket of sidebarPanel
+        
+        mainPanel( 
+          box(width=12,
+              title = "The summary table of storage cost",
+              status = "success", solidHeader = TRUE, collapsible = TRUE,
+              withSpinner(DTOutput("dtranscost"))
+          )
+          
+        ) ##End bracket of mainPanel
+      ) ## End bracket of sidebarPanel
       ),  # End basket of price tab
       
       tabItem(tabName ="decmodel",
@@ -210,7 +314,7 @@ ui <- dashboardPage(
               sidebarLayout(
                 
                 sidebarPanel(
-                  fileInput("file1", "Choose CSV File", accept = ".csv"),
+                  fileInput("file1", "Choose supported File", accept = ".csv"),
                   fluidRow(
                     column(width =6,
                            radioButtons("filetype", "File type:", 
@@ -450,6 +554,175 @@ server <- function(input, output) {
     ggplotly(predictplot) 
   })
   
+  output$sfcost<-renderDT({
+    
+    AMES_sf_mt<- AMES_sf |> rename(`RDC Pallet` =Pallet.cost) |>
+      mutate(`RDC CBM` = `RDC Pallet`  /1.3)
+    
+    AMES_sf_ndc<-AMES_sf_mt |> 
+      filter(POD== "AUMEL") |>
+      rename(`NDC Pallet`=`RDC Pallet`,
+             `NDC CBM` =`RDC CBM`) |> 
+      select(-POD)
+    
+    AMES_sf_mt<-left_join(AMES_sf_mt, AMES_sf_ndc, by =c("POL","Sensitivity")) 
+    
+    AMES_sf_dt<-AMES_sf_mt |>  datatable(
+      callback=JS('
+    $("button.buttons-copy").css({
+        "background": "#81D8D0",
+         "border": "2px solid #000000",
+         "color":"white",
+         "fontweight":"bold",  
+        "border-radius": "10px"
+    });
+    $("button.buttons-csv").css({
+        "background": "#FF7900",
+         "border": "2px solid #000000",  
+        "border-radius": "10px", 
+         "color":"white",
+         "fontweight":"bold"
+    });
+    
+    return table;
+')
+      
+      ,
+      extensions = c('Buttons', 'Scroller','FixedColumns'),
+      options = list(
+        scrollY = 200,
+        scroller = TRUE,
+        dom = 'Bfrtip',
+        scrollX = TRUE,
+        fixedColumns = TRUE,
+        
+        buttons = list( list(extend = "copy", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="14" viewBox="0 0 448 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M384 336H192c-8.8 0-16-7.2-16-16V64c0-8.8 7.2-16 16-16l140.1 0L400 115.9V320c0 8.8-7.2 16-16 16zM192 384H384c35.3 0 64-28.7 64-64V115.9c0-12.7-5.1-24.9-14.1-33.9L366.1 14.1c-9-9-21.2-14.1-33.9-14.1H192c-35.3 0-64 28.7-64 64V320c0 35.3 28.7 64 64 64zM64 128c-35.3 0-64 28.7-64 64V448c0 35.3 28.7 64 64 64H256c35.3 0 64-28.7 64-64V416H272v32c0 8.8-7.2 16-16 16H64c-8.8 0-16-7.2-16-16V192c0-8.8 7.2-16 16-16H96V128H64z"/></svg>'), 
+                        list(extend = "csv", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="16" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg>')) ,
+        initComplete = JS(
+          "function(settings, json) {",
+          "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
+          "}"))) %>%
+      formatCurrency(c("RDC CBM", "RDC Pallet", "NDC CBM","NDC Pallet"), digits = 2)
+    
+    return( AMES_sf_dt)
+  })
+  
+ output$dtranscost<-renderDT({
+   AMES_dtrans_mt<-AMES_dtrans |> rename(`Pallet cost` =Average.Pallet.Freight.Cost,
+                                         Origin =Origin.DC) |>
+     mutate(`CBM cost` =`Pallet cost`/1.3)|>
+     select(Combo, Origin, Destination, `Pallet cost`, `CBM cost`, Comment)
+   
+dtrans_dt<- AMES_dtrans_mt|>
+  
+  datatable(
+    callback=JS('
+    $("button.buttons-copy").css({
+        "background": "#81D8D0",
+         "border": "2px solid #000000",
+         "color":"white",
+         "fontweight":"bold",  
+        "border-radius": "10px"
+    });
+    $("button.buttons-csv").css({
+        "background": "#FF7900",
+         "border": "2px solid #000000",  
+        "border-radius": "10px", 
+         "color":"white",
+         "fontweight":"bold"
+    });
+    
+    return table;
+')
+    
+    ,
+    extensions = c('Buttons', 'Scroller','FixedColumns'),
+    options = list(
+      scrollY = 200,
+      scroller = TRUE,
+      dom = 'Bfrtip',
+      scrollX = TRUE,
+      fixedColumns = TRUE,
+      
+      buttons = list( list(extend = "copy", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="14" viewBox="0 0 448 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M384 336H192c-8.8 0-16-7.2-16-16V64c0-8.8 7.2-16 16-16l140.1 0L400 115.9V320c0 8.8-7.2 16-16 16zM192 384H384c35.3 0 64-28.7 64-64V115.9c0-12.7-5.1-24.9-14.1-33.9L366.1 14.1c-9-9-21.2-14.1-33.9-14.1H192c-35.3 0-64 28.7-64 64V320c0 35.3 28.7 64 64 64zM64 128c-35.3 0-64 28.7-64 64V448c0 35.3 28.7 64 64 64H256c35.3 0 64-28.7 64-64V416H272v32c0 8.8-7.2 16-16 16H64c-8.8 0-16-7.2-16-16V192c0-8.8 7.2-16 16-16H96V128H64z"/></svg>'), 
+                      list(extend = "csv", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="16" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg>')) ,
+      initComplete = JS(
+        "function(settings, json) {",
+        "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
+        "}"))) %>%
+  formatCurrency(c("Pallet cost","CBM cost"), digits = 2)
+
+return(dtrans_dt)
+   
+ })
+ 
+  
+  output$storagecost <- renderDT({
+    
+    ## Convert data to CBM level
+    AMES_storage_mt <- AMES_storage %>%
+      mutate(
+        CBM_cost = Pallet.Cost... / 1.3
+      ) %>%
+      rename(`RDC Pallet` = Pallet.Cost...,
+             `RDC CBM` = CBM_cost)
+    
+    ##Add the data for CBM
+    AMES_storage_ndc<- AMES_storage_mt |> filter(Region =="MEL")
+      
+    AMES_storage_mt$`NDC Pallet`<- AMES_storage_ndc$`RDC Pallet`
+    
+    AMES_storage_mt$`NDC CBM`<-AMES_storage_ndc$`RDC CBM`
+    
+    AMES_storage_mt<- AMES_storage_mt %>% mutate(`RDC Pallet` =if_else(Region =="MEL",NA,`RDC Pallet`),
+                                                 `RDC CBM`=if_else(Region =="MEL",NA,`RDC CBM`))
+    
+    
+    Sys.sleep(1)
+    
+      
+    storage_dt <- AMES_storage_mt |>
+      datatable(
+        callback=JS('
+    $("button.buttons-copy").css({
+        "background": "#81D8D0",
+         "border": "2px solid #000000",
+         "color":"white",
+         "fontweight":"bold",  
+        "border-radius": "10px"
+    });
+    $("button.buttons-csv").css({
+        "background": "#FF7900",
+         "border": "2px solid #000000",  
+        "border-radius": "10px", 
+         "color":"white",
+         "fontweight":"bold"
+    });
+    
+    return table;
+')
+        
+        ,
+        extensions = c('Buttons', 'Scroller','FixedColumns'),
+        options = list(
+          scrollY = 200,
+          scroller = TRUE,
+          dom = 'Bfrtip',
+          scrollX = TRUE,
+          fixedColumns = TRUE,
+          
+          buttons = list( list(extend = "copy", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="14" viewBox="0 0 448 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M384 336H192c-8.8 0-16-7.2-16-16V64c0-8.8 7.2-16 16-16l140.1 0L400 115.9V320c0 8.8-7.2 16-16 16zM192 384H384c35.3 0 64-28.7 64-64V115.9c0-12.7-5.1-24.9-14.1-33.9L366.1 14.1c-9-9-21.2-14.1-33.9-14.1H192c-35.3 0-64 28.7-64 64V320c0 35.3 28.7 64 64 64zM64 128c-35.3 0-64 28.7-64 64V448c0 35.3 28.7 64 64 64H256c35.3 0 64-28.7 64-64V416H272v32c0 8.8-7.2 16-16 16H64c-8.8 0-16-7.2-16-16V192c0-8.8 7.2-16 16-16H96V128H64z"/></svg>'), 
+                          list(extend = "csv", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="16" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg>')) ,
+          initComplete = JS(
+            "function(settings, json) {",
+            "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
+            "}"))) %>%
+      formatCurrency(c("RDC CBM", "RDC Pallet", "NDC CBM","NDC Pallet"), digits = 2)
+    
+    return(storage_dt)
+  })
+  
+  
   output$DTmodel<- renderDT({
     
     ## call the value of the vector
@@ -468,6 +741,9 @@ server <- function(input, output) {
                                            pkg_air_vol= if_else(Packaging.type=="Without packaging",
                                                                 Product.volume.cm./(  Length.cm* Height.cm*Width.cm),Product.volume.cm./(Packaging.Length*Packaging.width*Packaging.height)),
                                            pkg_utilization= 100- round(pkg_air_vol*Forecast.demand*100/1000000,digits=3)
+                                           
+                                           
+                                           
     )
     
     
@@ -528,9 +804,9 @@ server <- function(input, output) {
     example_final_result <- example_cost_study |>
       mutate( 
         Reg_cost =   as.numeric(input$container )  * (`Sea freight Cost per Cubic Meter` + `Inventory Cost per Cubic Meter per day` + `Other fixed_miscellaneous`),
-        NDC_cost = cbm * (`NDC sea freight` + `Land truck Cost per Cubic Meter`),
-        cost_difference = (NDC_cost - Reg_cost) / Reg_cost,
-        allocation_result_node_final = if_else(Region != "MEL" & cost_difference >= 5 & allocation_result_node1 %in% c("NDC: FCL for single sku", "NDC: FCL for consolidated sku"), "RDC: revise for cost analysis", allocation_result_node1)
+        NDC_cost = cbm * (`NDC sea freight` + `Land truck Cost per Cubic Meter`+ `NDC Inventory`),
+        cost_difference =  NDC_cost*(1+ as.numeric(input$cost)/100)-Reg_cost,
+        allocation_result_node_final = if_else(Region != "MEL" & cost_difference <= 0 & allocation_result_node1 %in% c("NDC: FCL for single sku", "NDC: FCL for consolidated sku"), "RDC: revise for cost analysis", allocation_result_node1)
       )
    
     
@@ -540,11 +816,11 @@ server <- function(input, output) {
                                                `Short description` =Short.description,
                                                Brand =Brand_name,
                                                `Consol CBM` =consolidated_cbm,
-                                               `Cost diff(%)` =cost_difference ,
+                                               `Cost diff` =cost_difference ,
                                                `Allocation reult`= allocation_result_node_final ,
                                                `Warning message`=Warning_message)|>
       mutate(Month =as.character(Month)) |>
-      select(`Product code`,`Short description`, Month,Region,`Consol CBM`,`Cost diff(%)` ,`Allocation reult`,`Warning message`) |> 
+      select(`Product code`,`Short description`, Month,Region,`Consol CBM`,`Cost diff` ,`Allocation reult`,`Warning message`) |> 
       datatable(
         callback=JS('
     $("button.buttons-copy").css({
@@ -582,10 +858,12 @@ server <- function(input, output) {
             "}")))|> formatStyle(
               c("Allocation reult","Warning message"), "white-space" = "pre-line"
             ) |> formatStyle("Warning message", 
-                             color = "red") |>
-      formatRound(c("Cost diff(%)"),digits = 2)|> 
+                             color = "red") |> 
+      formatCurrency("Cost diff", digits =2) |> 
       formatString("Consol CBM", suffix= HTML(' m<sup>3</sup>')) 
   })
+  
+  
   
   output$downloadData <- downloadHandler(
     filename = function() {

@@ -44,3 +44,33 @@ button#downloadData_bttn {
     margin-top: 15px;
     margin-left: 10px;
 }
+
+
+button#downloadData2_bttn {
+    background-color: crimson;
+    font-weight: bold;
+    color: white;
+    margin-top: 15px;
+    margin-left: 10px;
+}
+
+
+
+
+button#downloadData3_bttn {
+    background-color: crimson;
+    font-weight: bold;
+    color: white;
+    margin-top: 15px;
+    margin-left: 10px;
+}
+
+
+button#downloadData4_bttn {
+    background-color: crimson;
+    font-weight: bold;
+    color: white;
+    margin-top: 15px;
+    margin-left: 10px;
+}
+
