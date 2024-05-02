@@ -376,7 +376,7 @@ ui <- dashboardPage(
 server <- function(input, output) { 
   
 
-  
+  ## Data file update
   data_example <- reactive({
     if (is.null(input$file1)) {
       # If no file is uploaded, use iris dataset
@@ -392,6 +392,56 @@ server <- function(input, output) {
     }
     
   })
+  
+  data_storage <- reactive({
+    if (is.null(input$file2)) {
+      # If no file is uploaded, use iris dataset
+      AMES_storage
+    } else {
+      file <- input$file2
+      ext <- tools::file_ext(file$datapath)
+      
+      req(file)
+      validate(need(ext == input$filetype, "Please upload a csv file"))
+      
+      read.csv(file$datapath, header = TRUE)
+    }
+    
+  })
+  
+  data_dtrans <- reactive({
+    if (is.null(input$file3)) {
+      # If no file is uploaded, use iris dataset
+      AMES_dtrans
+    } else {
+      file <- input$file3
+      ext <- tools::file_ext(file$datapath)
+      
+      req(file)
+      validate(need(ext == input$filetype, "Please upload a csv file"))
+      
+      read.csv(file$datapath, header = TRUE)
+    }
+    
+  })
+  
+  
+  data_sf <- reactive({
+    if (is.null(input$file4)) {
+      # If no file is uploaded, use iris dataset
+      AMES_sf
+    } else {
+      file <- input$file4
+      ext <- tools::file_ext(file$datapath)
+      
+      req(file)
+      validate(need(ext == input$filetype, "Please upload a csv file"))
+      
+      read.csv(file$datapath, header = TRUE)
+    }
+    
+  })
+  
   
   output$dygraphresult<-renderDygraph({
     
@@ -556,7 +606,7 @@ server <- function(input, output) {
   
   output$sfcost<-renderDT({
     
-    AMES_sf_mt<- AMES_sf |> rename(`RDC Pallet` =Pallet.cost) |>
+    AMES_sf_mt<- data_sf() |> rename(`RDC Pallet` =Pallet.cost) |>
       mutate(`RDC CBM` = `RDC Pallet`  /1.3)
     
     AMES_sf_ndc<-AMES_sf_mt |> 
@@ -611,7 +661,7 @@ server <- function(input, output) {
   })
   
  output$dtranscost<-renderDT({
-   AMES_dtrans_mt<-AMES_dtrans |> rename(`Pallet cost` =Average.Pallet.Freight.Cost,
+   AMES_dtrans_mt<- data_dtrans() |> rename(`Pallet cost` =Average.Pallet.Freight.Cost,
                                          Origin =Origin.DC) |>
      mutate(`CBM cost` =`Pallet cost`/1.3)|>
      select(Combo, Origin, Destination, `Pallet cost`, `CBM cost`, Comment)
@@ -663,7 +713,7 @@ return(dtrans_dt)
   output$storagecost <- renderDT({
     
     ## Convert data to CBM level
-    AMES_storage_mt <- AMES_storage %>%
+    AMES_storage_mt <- data_storage() %>%
       mutate(
         CBM_cost = Pallet.Cost... / 1.3
       ) %>%
