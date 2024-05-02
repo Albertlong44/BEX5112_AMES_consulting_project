@@ -264,7 +264,7 @@ ui <- dashboardPage(
               mainPanel( 
                 box(width=12,
                     title = "The summary table of storage cost",
-                    status = "success", solidHeader = TRUE, collapsible = TRUE,
+                    status = "primary", solidHeader = TRUE, collapsible = TRUE,
                     withSpinner(DTOutput("storagecost"))
                 )
                 
@@ -296,7 +296,7 @@ ui <- dashboardPage(
         mainPanel( 
           box(width=12,
               title = "The summary table of storage cost",
-              status = "success", solidHeader = TRUE, collapsible = TRUE,
+              status = "warning", solidHeader = TRUE, collapsible = TRUE,
               withSpinner(DTOutput("dtranscost"))
           )
           
@@ -565,7 +565,10 @@ server <- function(input, output) {
              `NDC CBM` =`RDC CBM`) |> 
       select(-POD)
     
-    AMES_sf_mt<-left_join(AMES_sf_mt, AMES_sf_ndc, by =c("POL","Sensitivity")) 
+    AMES_sf_mt<- left_join(AMES_sf_mt, AMES_sf_ndc, 
+                           by =c("POL","Sensitivity")) |>
+    mutate(`RDC Pallet` =if_else(POD== "AUMEL",NA,`RDC Pallet`),
+           `RDC CBM`=if_else(POD== "AUMEL",NA,`RDC CBM`))
     
     AMES_sf_dt<-AMES_sf_mt |>  datatable(
       callback=JS('
@@ -674,7 +677,7 @@ return(dtrans_dt)
     
     AMES_storage_mt$`NDC CBM`<-AMES_storage_ndc$`RDC CBM`
     
-    AMES_storage_mt<- AMES_storage_mt %>% mutate(`RDC Pallet` =if_else(Region =="MEL",NA,`RDC Pallet`),
+    AMES_storage_mt<- AMES_storage_mt |> mutate(`RDC Pallet` =if_else(Region =="MEL",NA,`RDC Pallet`),
                                                  `RDC CBM`=if_else(Region =="MEL",NA,`RDC CBM`))
     
     
