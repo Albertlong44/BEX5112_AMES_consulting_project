@@ -30,9 +30,52 @@ storage<-read_excel("data/price_ratecard.xlsx", sheet = "storage")
 
 AMES_storage<-read.csv("data/AMES_storage.csv")
 
+
+
 AMES_dtrans <- read.csv("data/AMES_roadtransportation.csv")
 
 AMES_sf<-read.csv("data/AMES_of.csv")
+
+
+
+## Part C: Data cleaning and wranggling 
+
+## Convert data to CBM level
+AMES_storage_mt <- AMES_storage %>%
+  mutate(
+    CBM_cost = Pallet.Cost... / 1.3
+  ) %>%
+  rename(`RDC Pallet` = Pallet.Cost...,
+         `RDC CBM` = CBM_cost)
+
+##Add the data for CBM
+AMES_storage_ndc<- AMES_storage_mt |> filter(Region =="MEL")
+
+AMES_storage_mt$`NDC Pallet`<- AMES_storage_ndc$`RDC Pallet`
+
+AMES_storage_mt$`NDC CBM`<-AMES_storage_ndc$`RDC CBM`
+
+
+## dtrans cleaning
+
+AMES_dtrans_mt<- AMES_dtrans  |> rename(`Pallet cost` =Average.Pallet.Freight.Cost,
+                                         Origin =Origin.DC) |>
+  mutate(`CBM cost` =`Pallet cost`/1.3)|>
+  select(Combo, Origin, Destination, `Pallet cost`, `CBM cost`, Comment)
+
+## SF cleaning
+
+AMES_sf_mt<- AMES_sf |> rename(`RDC Pallet` =Pallet.cost) |>
+  mutate(`RDC CBM` = `RDC Pallet`  /1.3)
+
+AMES_sf_ndc<-AMES_sf_mt |> 
+  filter(POD== "AUMEL") |>
+  rename(`NDC Pallet`=`RDC Pallet`,
+         `NDC CBM` =`RDC CBM`) |> 
+  select(-POD)
+
+AMES_sf_mt<- left_join(AMES_sf_mt, AMES_sf_ndc, 
+                       by =c("POL","Sensitivity"))
 
 
 ## preset_list
@@ -396,7 +439,7 @@ server <- function(input, output) {
   data_storage <- reactive({
     if (is.null(input$file2)) {
       # If no file is uploaded, use iris dataset
-      AMES_storage
+      AMES_storage_mt
     } else {
       file <- input$file2
       ext <- tools::file_ext(file$datapath)
@@ -404,7 +447,24 @@ server <- function(input, output) {
       req(file)
       validate(need(ext == input$filetype, "Please upload a csv file"))
       
-      read.csv(file$datapath, header = TRUE)
+     data<- read.csv(file$datapath, header = TRUE)
+     
+     data_mt <- data %>%
+       mutate(
+         CBM_cost = Pallet.Cost... / 1.3
+       ) %>%
+       rename(`RDC Pallet` = Pallet.Cost...,
+              `RDC CBM` = CBM_cost)
+     
+     ##Add the data for CBM
+     data_ndc<- AMES_storage_mt |> filter(Region =="MEL")
+     
+     data_mt$`NDC Pallet`<- AMES_storage_ndc$`RDC Pallet`
+     
+     data_mt$`NDC CBM`<-AMES_storage_ndc$`RDC CBM`
+     
+     data_mt
+     
     }
     
   })
@@ -412,7 +472,7 @@ server <- function(input, output) {
   data_dtrans <- reactive({
     if (is.null(input$file3)) {
       # If no file is uploaded, use iris dataset
-      AMES_dtrans
+      AMES_dtrans_mt
     } else {
       file <- input$file3
       ext <- tools::file_ext(file$datapath)
@@ -420,7 +480,14 @@ server <- function(input, output) {
       req(file)
       validate(need(ext == input$filetype, "Please upload a csv file"))
       
-      read.csv(file$datapath, header = TRUE)
+      data<-read.csv(file$datapath, header = TRUE)
+      
+      data_mt<- data |> rename(`Pallet cost` =Average.Pallet.Freight.Cost,
+                                              Origin =Origin.DC) |>
+        mutate(`CBM cost` =`Pallet cost`/1.3)|>
+        select(Combo, Origin, Destination, `Pallet cost`, `CBM cost`, Comment)
+      
+      data_mt
     }
     
   })
@@ -429,7 +496,7 @@ server <- function(input, output) {
   data_sf <- reactive({
     if (is.null(input$file4)) {
       # If no file is uploaded, use iris dataset
-      AMES_sf
+      AMES_sf_mt
     } else {
       file <- input$file4
       ext <- tools::file_ext(file$datapath)
@@ -437,7 +504,22 @@ server <- function(input, output) {
       req(file)
       validate(need(ext == input$filetype, "Please upload a csv file"))
       
-      read.csv(file$datapath, header = TRUE)
+      data<-read.csv(file$datapath, header = TRUE)
+      
+      
+      data_mt<- data |> rename(`RDC Pallet` =Pallet.cost) |>
+        mutate(`RDC CBM` = `RDC Pallet`  /1.3)
+      
+      data_ndc<-AMES_sf_mt |> 
+        filter(POD== "AUMEL") |>
+        rename(`NDC Pallet`=`RDC Pallet`,
+               `NDC CBM` =`RDC CBM`) |> 
+        select(-POD)
+      
+      data_mt<- left_join(AMES_sf_mt, AMES_sf_ndc, 
+                             by =c("POL","Sensitivity")) 
+      
+      data_mt
     }
     
   })
@@ -606,17 +688,7 @@ server <- function(input, output) {
   
   output$sfcost<-renderDT({
     
-    AMES_sf_mt<- data_sf() |> rename(`RDC Pallet` =Pallet.cost) |>
-      mutate(`RDC CBM` = `RDC Pallet`  /1.3)
-    
-    AMES_sf_ndc<-AMES_sf_mt |> 
-      filter(POD== "AUMEL") |>
-      rename(`NDC Pallet`=`RDC Pallet`,
-             `NDC CBM` =`RDC CBM`) |> 
-      select(-POD)
-    
-    AMES_sf_mt<- left_join(AMES_sf_mt, AMES_sf_ndc, 
-                           by =c("POL","Sensitivity")) |>
+ AMES_sf_mt<- data_sf() |>
     mutate(`RDC Pallet` =if_else(POD== "AUMEL",NA,`RDC Pallet`),
            `RDC CBM`=if_else(POD== "AUMEL",NA,`RDC CBM`))
     
@@ -661,10 +733,9 @@ server <- function(input, output) {
   })
   
  output$dtranscost<-renderDT({
-   AMES_dtrans_mt<- data_dtrans() |> rename(`Pallet cost` =Average.Pallet.Freight.Cost,
-                                         Origin =Origin.DC) |>
-     mutate(`CBM cost` =`Pallet cost`/1.3)|>
-     select(Combo, Origin, Destination, `Pallet cost`, `CBM cost`, Comment)
+
+   AMES_dtrans_mt<-data_dtrans()
+   
    
 dtrans_dt<- AMES_dtrans_mt|>
   
@@ -712,23 +783,11 @@ return(dtrans_dt)
   
   output$storagecost <- renderDT({
     
-    ## Convert data to CBM level
-    AMES_storage_mt <- data_storage() %>%
-      mutate(
-        CBM_cost = Pallet.Cost... / 1.3
-      ) %>%
-      rename(`RDC Pallet` = Pallet.Cost...,
-             `RDC CBM` = CBM_cost)
+
     
-    ##Add the data for CBM
-    AMES_storage_ndc<- AMES_storage_mt |> filter(Region =="MEL")
-      
-    AMES_storage_mt$`NDC Pallet`<- AMES_storage_ndc$`RDC Pallet`
-    
-    AMES_storage_mt$`NDC CBM`<-AMES_storage_ndc$`RDC CBM`
-    
-    AMES_storage_mt<- AMES_storage_mt |> mutate(`RDC Pallet` =if_else(Region =="MEL",NA,`RDC Pallet`),
-                                                 `RDC CBM`=if_else(Region =="MEL",NA,`RDC CBM`))
+    AMES_storage_mt<- data_storage() |> 
+      mutate(`RDC Pallet` =if_else(Region =="MEL",NA,`RDC Pallet`),
+              `RDC CBM`=if_else(Region =="MEL",NA,`RDC CBM`))
     
     
     Sys.sleep(1)
@@ -846,20 +905,51 @@ return(dtrans_dt)
       )
     
     
+    
+    ## Call the price ratecard
+    
+    
+    AMES_dtrans_exp<- data_dtrans() 
+    
+    AMES_dtrans_exp<- AMES_dtrans_exp |> 
+      filter( Origin =="VIC") 
+    
+    
+    AMES_storage_exp<- data_storage() 
+    
+    AMES_storage_exp<- AMES_storage_exp |> 
+      rename( rdc_storage=`RDC CBM`,
+              ndc_storage =`NDC CBM`)
+    
+    
+    
+    AMES_sf_exp<- data_sf()
+    
+    
+    AMES_sf_exp<-  AMES_sf_exp  |>
+      mutate(Region =substring(POD, first =3)) |> 
+      rename( rdc_sf=`RDC CBM`,
+              ndc_sf =`NDC CBM`)
+    
+    
     ## Cost analysis
     example_cost_study <- example_join |> 
-      left_join(sea_freight, by =c("POL","Region","Sensitivity")) |> 
-      left_join(d_transporation, by = c("Region" = "Destination")) |> 
-      left_join(storage, by=c("Region" = "Facility"))
+      left_join(AMES_sf_exp, by =c("POL","Region","Sensitivity")) |> 
+      left_join(AMES_storage_exp, by="Region")|>
+      left_join(AMES_dtrans_exp, by = c("State" = "Destination"))
+    
     
     
     ## Result aggregation
     example_final_result <- example_cost_study |>
       mutate( 
-        Reg_cost =   as.numeric(input$container )  * (`Sea freight Cost per Cubic Meter` + `Inventory Cost per Cubic Meter per day` + `Other fixed_miscellaneous`),
-        NDC_cost = cbm * (`NDC sea freight` + `Land truck Cost per Cubic Meter`+ `NDC Inventory`),
-        cost_difference =  NDC_cost*(1+ as.numeric(input$cost)/100)-Reg_cost,
-        allocation_result_node_final = if_else(Region != "MEL" & cost_difference <= 0 & allocation_result_node1 %in% c("NDC: FCL for single sku", "NDC: FCL for consolidated sku"), "RDC: revise for cost analysis", allocation_result_node1)
+        Reg_cost =   as.numeric(input$container ) *( rdc_storage + rdc_sf) ,
+        NDC_cost = cbm * (ndc_sf+ rdc_storage + `CBM cost`),
+        cost_difference =  if_else(Region == "MEL" |allocation_result_node1 %in% c("RDC: FCL for single sku", "RDC: FCL for consolidated sku","Other strategy to wait for FCL consolidation"), 
+                                   NA, NDC_cost*(1+ as.numeric(input$cost)/100)-Reg_cost),
+        allocation_result_node_final = if_else( !is.na(cost_difference)& cost_difference >= 0,"RDC: revise for cost analysis", allocation_result_node1),
+        cost_difference =if_else( is.na(cost_difference),"Not appliable", paste0(round(cost_difference),"%"))
+        
       )
    
     
@@ -911,8 +1001,7 @@ return(dtrans_dt)
             "}")))|> formatStyle(
               c("Allocation reult","Warning message"), "white-space" = "pre-line"
             ) |> formatStyle("Warning message", 
-                             color = "red") |> 
-      formatCurrency("Cost diff", digits =2) |> 
+                             color = "red")  |> 
       formatString("Consol CBM", suffix= HTML(' m<sup>3</sup>')) 
   })
   
