@@ -59,7 +59,7 @@ AMES_storage_mt$`NDC CBM`<-AMES_storage_ndc$`RDC CBM`
 ## dtrans cleaning
 
 AMES_dtrans_mt<- AMES_dtrans  |> rename(`Pallet cost` =Average.Pallet.Freight.Cost,
-                                         Origin =Origin.DC) |>
+                                        Origin =Origin.DC) |>
   mutate(`CBM cost` =`Pallet cost`/1.3)|>
   select(Combo, Origin, Destination, `Pallet cost`, `CBM cost`, Comment)
 
@@ -286,65 +286,65 @@ ui <- dashboardPage(
               p(HTML('<h3 style="margin-left:20px; font-weight: bold; ">Storage cost:</h3>')),
               sidebarLayout(
                 
-               sidebarPanel(
-                 fileInput("file2", "Choose supported File", accept = ".csv"),
-                 fluidRow(
-                   column(width =6,
-                          radioButtons("filetype2", "File type:", 
-                                       choices =c(CSV="csv",Excel ="xlsx"), inline =TRUE)),
-                   column(width =6,
-                          downloadBttn(
-                            outputId = "downloadData2",
-                            label ="template",
-                            size = "xs",
-                            style = "bordered",
-                            color = "primary"
-                          ))
-                 ) ##End bracket of fluidRow
-                 
-                 ),## End bracket of sidebarPanel
-              
-              mainPanel( 
-                box(width=12,
-                    title = "The summary table of storage cost",
-                    status = "primary", solidHeader = TRUE, collapsible = TRUE,
-                    withSpinner(DTOutput("storagecost"))
-                )
+                sidebarPanel(
+                  fileInput("file2", "Choose supported File", accept = ".csv"),
+                  fluidRow(
+                    column(width =6,
+                           radioButtons("filetype2", "File type:", 
+                                        choices =c(CSV="csv",Excel ="xlsx"), inline =TRUE)),
+                    column(width =6,
+                           downloadBttn(
+                             outputId = "downloadData2",
+                             label ="template",
+                             size = "xs",
+                             style = "bordered",
+                             color = "primary"
+                           ))
+                  ) ##End bracket of fluidRow
+                  
+                ),## End bracket of sidebarPanel
                 
+                mainPanel( 
+                  box(width=12,
+                      title = "The summary table of storage cost",
+                      status = "primary", solidHeader = TRUE, collapsible = TRUE,
+                      withSpinner(DTOutput("storagecost"))
+                  )
+                  
                 ) ##End bracket of mainPanel
               ),##End bracket of sidebarPanel
-      br(),
-      br(),
-      p(HTML('<h3 style="margin-left:20px; font-weight: bold; ">Domestic transportation cost:</h3>')),
-      sidebarLayout(
-        
-        sidebarPanel(
-          fileInput("file3", "Choose supported File", accept = ".csv"),
-          fluidRow(
-            column(width =6,
-                   radioButtons("filetype3", "File type:", 
-                                choices =c(CSV="csv",Excel ="xlsx"), inline =TRUE)),
-            column(width =6,
-                   downloadBttn(
-                     outputId = "downloadData3",
-                     label ="template",
-                     size = "xs",
-                     style = "bordered",
-                     color = "primary"
-                   ))
-          ) ##End bracket of fluidRow
-          
-        ),## End bracket of sidebarPanel
-        
-        mainPanel( 
-          box(width=12,
-              title = "The summary table of storage cost",
-              status = "warning", solidHeader = TRUE, collapsible = TRUE,
-              withSpinner(DTOutput("dtranscost"))
-          )
-          
-        ) ##End bracket of mainPanel
-      ) ## End bracket of sidebarPanel
+              br(),
+              br(),
+              p(HTML('<h3 style="margin-left:20px; font-weight: bold; ">Domestic transportation cost:</h3>')),
+              sidebarLayout(
+                
+                sidebarPanel(
+                  fileInput("file3", "Choose supported File", accept = ".csv"),
+                  fluidRow(
+                    column(width =6,
+                           radioButtons("filetype3", "File type:", 
+                                        choices =c(CSV="csv",Excel ="xlsx"), inline =TRUE)),
+                    column(width =6,
+                           downloadBttn(
+                             outputId = "downloadData3",
+                             label ="template",
+                             size = "xs",
+                             style = "bordered",
+                             color = "primary"
+                           ))
+                  ) ##End bracket of fluidRow
+                  
+                ),## End bracket of sidebarPanel
+                
+                mainPanel( 
+                  box(width=12,
+                      title = "The summary table of storage cost",
+                      status = "warning", solidHeader = TRUE, collapsible = TRUE,
+                      withSpinner(DTOutput("dtranscost"))
+                  )
+                  
+                ) ##End bracket of mainPanel
+              ) ## End bracket of sidebarPanel
       ),  # End basket of price tab
       
       tabItem(tabName ="decmodel",
@@ -386,7 +386,12 @@ ui <- dashboardPage(
                               "Space utilization(%):",
                               min = 0,
                               max = 100,
-                              value = 80)
+                              value = 80),
+                  sliderInput("space",
+                              "remaining space(%):",
+                              min = 0,
+                              max = 30,
+                              value = 5)
                   
                 ),
                 
@@ -418,7 +423,7 @@ ui <- dashboardPage(
 ## Part D server setup
 server <- function(input, output) { 
   
-
+  
   ## Data file update
   data_example <- reactive({
     if (is.null(input$file1)) {
@@ -447,24 +452,24 @@ server <- function(input, output) {
       req(file)
       validate(need(ext == input$filetype, "Please upload a csv file"))
       
-     data<- read.csv(file$datapath, header = TRUE)
-     
-     data_mt <- data %>%
-       mutate(
-         CBM_cost = Pallet.Cost... / 1.3
-       ) %>%
-       rename(`RDC Pallet` = Pallet.Cost...,
-              `RDC CBM` = CBM_cost)
-     
-     ##Add the data for CBM
-     data_ndc<- AMES_storage_mt |> filter(Region =="MEL")
-     
-     data_mt$`NDC Pallet`<- AMES_storage_ndc$`RDC Pallet`
-     
-     data_mt$`NDC CBM`<-AMES_storage_ndc$`RDC CBM`
-     
-     data_mt
-     
+      data<- read.csv(file$datapath, header = TRUE)
+      
+      data_mt <- data %>%
+        mutate(
+          CBM_cost = Pallet.Cost... / 1.3
+        ) %>%
+        rename(`RDC Pallet` = Pallet.Cost...,
+               `RDC CBM` = CBM_cost)
+      
+      ##Add the data for CBM
+      data_ndc<- AMES_storage_mt |> filter(Region =="MEL")
+      
+      data_mt$`NDC Pallet`<- AMES_storage_ndc$`RDC Pallet`
+      
+      data_mt$`NDC CBM`<-AMES_storage_ndc$`RDC CBM`
+      
+      data_mt
+      
     }
     
   })
@@ -483,7 +488,7 @@ server <- function(input, output) {
       data<-read.csv(file$datapath, header = TRUE)
       
       data_mt<- data |> rename(`Pallet cost` =Average.Pallet.Freight.Cost,
-                                              Origin =Origin.DC) |>
+                               Origin =Origin.DC) |>
         mutate(`CBM cost` =`Pallet cost`/1.3)|>
         select(Combo, Origin, Destination, `Pallet cost`, `CBM cost`, Comment)
       
@@ -517,7 +522,7 @@ server <- function(input, output) {
         select(-POD)
       
       data_mt<- left_join(AMES_sf_mt, AMES_sf_ndc, 
-                             by =c("POL","Sensitivity")) 
+                          by =c("POL","Sensitivity")) 
       
       data_mt
     }
@@ -688,9 +693,9 @@ server <- function(input, output) {
   
   output$sfcost<-renderDT({
     
- AMES_sf_mt<- data_sf() |>
-    mutate(`RDC Pallet` =if_else(POD== "AUMEL",NA,`RDC Pallet`),
-           `RDC CBM`=if_else(POD== "AUMEL",NA,`RDC CBM`))
+    AMES_sf_mt<- data_sf() |>
+      mutate(`RDC Pallet` =if_else(POD== "AUMEL",NA,`RDC Pallet`),
+             `RDC CBM`=if_else(POD== "AUMEL",NA,`RDC CBM`))
     
     AMES_sf_dt<-AMES_sf_mt |>  datatable(
       callback=JS('
@@ -732,15 +737,15 @@ server <- function(input, output) {
     return( AMES_sf_dt)
   })
   
- output$dtranscost<-renderDT({
-
-   AMES_dtrans_mt<-data_dtrans()
-   
-   
-dtrans_dt<- AMES_dtrans_mt|>
-  
-  datatable(
-    callback=JS('
+  output$dtranscost<-renderDT({
+    
+    AMES_dtrans_mt<-data_dtrans()
+    
+    
+    dtrans_dt<- AMES_dtrans_mt|>
+      
+      datatable(
+        callback=JS('
     $("button.buttons-copy").css({
         "background": "#81D8D0",
          "border": "2px solid #000000",
@@ -758,41 +763,41 @@ dtrans_dt<- AMES_dtrans_mt|>
     
     return table;
 ')
+        
+        ,
+        extensions = c('Buttons', 'Scroller','FixedColumns'),
+        options = list(
+          scrollY = 200,
+          scroller = TRUE,
+          dom = 'Bfrtip',
+          scrollX = TRUE,
+          fixedColumns = TRUE,
+          
+          buttons = list( list(extend = "copy", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="14" viewBox="0 0 448 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M384 336H192c-8.8 0-16-7.2-16-16V64c0-8.8 7.2-16 16-16l140.1 0L400 115.9V320c0 8.8-7.2 16-16 16zM192 384H384c35.3 0 64-28.7 64-64V115.9c0-12.7-5.1-24.9-14.1-33.9L366.1 14.1c-9-9-21.2-14.1-33.9-14.1H192c-35.3 0-64 28.7-64 64V320c0 35.3 28.7 64 64 64zM64 128c-35.3 0-64 28.7-64 64V448c0 35.3 28.7 64 64 64H256c35.3 0 64-28.7 64-64V416H272v32c0 8.8-7.2 16-16 16H64c-8.8 0-16-7.2-16-16V192c0-8.8 7.2-16 16-16H96V128H64z"/></svg>'), 
+                          list(extend = "csv", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="16" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg>')) ,
+          initComplete = JS(
+            "function(settings, json) {",
+            "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
+            "}"))) %>%
+      formatCurrency(c("Pallet cost","CBM cost"), digits = 2)
     
-    ,
-    extensions = c('Buttons', 'Scroller','FixedColumns'),
-    options = list(
-      scrollY = 200,
-      scroller = TRUE,
-      dom = 'Bfrtip',
-      scrollX = TRUE,
-      fixedColumns = TRUE,
-      
-      buttons = list( list(extend = "copy", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="14" viewBox="0 0 448 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M384 336H192c-8.8 0-16-7.2-16-16V64c0-8.8 7.2-16 16-16l140.1 0L400 115.9V320c0 8.8-7.2 16-16 16zM192 384H384c35.3 0 64-28.7 64-64V115.9c0-12.7-5.1-24.9-14.1-33.9L366.1 14.1c-9-9-21.2-14.1-33.9-14.1H192c-35.3 0-64 28.7-64 64V320c0 35.3 28.7 64 64 64zM64 128c-35.3 0-64 28.7-64 64V448c0 35.3 28.7 64 64 64H256c35.3 0 64-28.7 64-64V416H272v32c0 8.8-7.2 16-16 16H64c-8.8 0-16-7.2-16-16V192c0-8.8 7.2-16 16-16H96V128H64z"/></svg>'), 
-                      list(extend = "csv", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="16" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg>')) ,
-      initComplete = JS(
-        "function(settings, json) {",
-        "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
-        "}"))) %>%
-  formatCurrency(c("Pallet cost","CBM cost"), digits = 2)
-
-return(dtrans_dt)
-   
- })
- 
+    return(dtrans_dt)
+    
+  })
+  
   
   output$storagecost <- renderDT({
     
-
+    
     
     AMES_storage_mt<- data_storage() |> 
       mutate(`RDC Pallet` =if_else(Region =="MEL",NA,`RDC Pallet`),
-              `RDC CBM`=if_else(Region =="MEL",NA,`RDC CBM`))
+             `RDC CBM`=if_else(Region =="MEL",NA,`RDC CBM`))
     
     
     Sys.sleep(1)
     
-      
+    
     storage_dt <- AMES_storage_mt |>
       datatable(
         callback=JS('
@@ -838,7 +843,7 @@ return(dtrans_dt)
   output$DTmodel<- renderDT({
     
     ## call the value of the vector
-
+    
     
     
     ## Data wranggling
@@ -859,8 +864,8 @@ return(dtrans_dt)
     )
     
     
-      
-      
+    
+    
     ## Summarise the mean
     example_sum<-example_mt  |>
       group_by(Supplier.Factory.code,Region) |> 
@@ -874,13 +879,13 @@ return(dtrans_dt)
         cbm <= 0 ~" No or wrong predictive orders detected",
         Region == "MEL" & cbm>0  ~ "NDC check",
         Region != "MEL"& cbm >=  input$container  ~ "RDC: FCL for single sku",
-        Region != "MEL"& cbm<  input$container   &leftover_space>0 & leftover_space<=5 ~ "RDC: FCL for single sku",
-        Region != "MEL"& cbm <  input$container  & consolidated_cbm >=  input$container   &leftover_space>5 ~"RDC: FCL for consolidated sku",
+        Region != "MEL"& cbm<  input$container   &leftover_space>0 & leftover_space<= as.numeric(input$space)  ~ "RDC: FCL for single sku",
+        Region != "MEL"& cbm <  input$container  & consolidated_cbm >=  input$container   &leftover_space> as.numeric(input$space) ~"RDC: FCL for consolidated sku",
         Region != "MEL"& consolidated_cbm <  input$container  ~"NDC check",
         TRUE ~ NA_character_
       ),  Warning_message= case_when( cbm <= 0 ~"No or wrong predictive orders detected, please check your data.",
                                       consolidated_pkg_utilization<= input$airvol ~" Warning: This batch of shipment carries highair volumes.",
-                                      leftover_space>0 & leftover_space<=5  ~"Warning: The current CBM delivery is just below the FCL threshold. Consider adjusting the volume quantity to meet the FCL requirement.")
+                                      leftover_space>0 & leftover_space<= as.numeric(input$space)  ~"Warning: The current CBM delivery is just below the FCL threshold. Consider adjusting the volume quantity to meet the FCL requirement.")
       
       ) 
     ##NDC round check  
@@ -894,8 +899,8 @@ return(dtrans_dt)
       mutate(
         allocation_result_node1 = case_when( 
           allocation_result_node_pr == "NDC check" & cbm >= input$container  ~ "NDC: FCL for single sku",
-          allocation_result_node_pr == "NDC check" & cbm <  input$container   & leftover_space > 0 & leftover_space <= 5 ~ "NDC: FCL for single sku",
-          allocation_result_node_pr == "NDC check" & cbm <  input$container  & leftover_space > 5 & consolidated_cbm_ndc >= input$container  ~ "NDC: FCL for consolidated sku",
+          allocation_result_node_pr == "NDC check" & cbm <  input$container   & leftover_space > 0 & leftover_space <= as.numeric(input$space)  ~ "NDC: FCL for single sku",
+          allocation_result_node_pr == "NDC check" & cbm <  input$container  & leftover_space > input$space & consolidated_cbm_ndc >= as.numeric(input$space)   ~ "NDC: FCL for consolidated sku",
           allocation_result_node_pr == "NDC check" & consolidated_cbm_ndc <  input$container  ~ "Other strategy to wait for FCL consolidation",
           TRUE~allocation_result_node_pr
         ),
@@ -951,7 +956,7 @@ return(dtrans_dt)
         cost_difference =if_else( is.na(cost_difference),"Not appliable", paste0(round(cost_difference),"%"))
         
       )
-   
+    
     
     Sys.sleep(2)
     
