@@ -155,9 +155,10 @@ ui <- dashboardPage(
                ".selectize-dropdown .option[data-value='33'] { background-color:#3183BE  !important; color: white !important; }",
                ".item[data-value='76'] { background-color: #5F9EA0 !important; color: white !important; }",
                ".selectize-dropdown .option[data-value='76'] { background-color:#5F9EA0  !important; color: white !important; }",
-               "button#dropdown_model{ font-weight: bold; background-color: #00A65A; color: white; border: black solid 2px; margin-left: 10px;}",
-               "button#dropdown_region {font-weight: bold;background-color: mediumpurple; border: black solid 2px; margin-left: 20px;}",
-               "button#dropdown_product { font-weight: bold; border: black solid 2px; margin-left: 30px; }"
+               "button#dropdown_data{font-weight: bold;background-color: #FF0000;color: white; border: black solid 2px; margin-left: 30px;}",
+               "button#dropdown_model{ font-weight: bold; background-color: #00A65A; color: white; border: black solid 2px; margin-left: 20px;}",
+               "button#dropdown_region {font-weight: bold;background-color: mediumpurple;color: white; border: black solid 2px; margin-left: 20px;}",
+               "button#dropdown_product { font-weight: bold;color: white; border: black solid 2px; margin-left: 20px; }"
     ), ## End basket of tags$style
     tabItems(
       tabItem(tabName = "dfore",
@@ -167,7 +168,31 @@ ui <- dashboardPage(
                      font-family: fantasy;"> AMES Project Report</h2>')),
               br(),
               br(),
-              fluidRow(width =12,
+             fluidRow(width =12,
+              column(width =3,
+                             dropdownButton(
+                               inputId = "dropdown_data",
+                               label ="Data update",
+                               circle=FALSE,
+                               icon= icon("database"),
+                               status ="warning",
+                               fileInput("file5", "Choose supported File", accept = ".csv"),
+                               fluidRow(
+                                 column(width =6,
+                                        radioButtons("filetype5", "File type:", 
+                                                     choices =c(CSV="csv",Excel ="xlsx"), inline =TRUE)),
+                                 column(width =6,
+                                        downloadBttn(
+                                          outputId = "downloadData5",
+                                          label ="template",
+                                          size = "xs",
+                                          style = "bordered",
+                                          color = "primary"
+                                        ) )
+                               )
+                               
+                             ) ##dropdown
+                      ), ## coklumn
                        column(width =3,
                               dropdownButton(
                                 inputId = "dropdown_product",
@@ -176,8 +201,8 @@ ui <- dashboardPage(
                                 icon= icon("screwdriver-wrench"),
                                 status ="warning",
                                 selectizeInput("product","Products:",
-                                               choices = product_list,
-                                               selected =product_list[1],
+                                               choices = product_list ,
+                                               selected = product_list [1],
                                                multiple= TRUE) )    
                        ),
                        
@@ -206,14 +231,20 @@ ui <- dashboardPage(
                                                selected ="ETS",
                                                multiple= FALSE)  ) 
                        )
-                       
               ), ## fluidrow end bracket
               br(),
               br(),
-              box(width =10, status ="success", title ="Pattern learning",  collapsible = FALSE, solidHeader = TRUE,
+              fluidRow(width =12,
+                       
+                       column( width =6,
+              box(width =10, status ="success", title ="Pattern learning",  collapsible = TRUE, solidHeader = TRUE,
+                  style='height:400px;overflow-y: scroll;',
+                  
                   h3('Overall trend:'),
-                  numericInputIcon("dygraphperiod","Period:", value=36, min = 1, max = 120, 
-                                   icon =icon("sliders"), width ='30%'), 
+                  numericInputIcon("dygraphperiod","Tail period:", value=36, min = 1, max = 120, 
+                                   icon =icon("sliders"), 
+                                   help_text = "Out of bound",
+                                   width ='30%'), 
                   withSpinner(dygraphOutput("dygraphresult")),
                   br(),
                   br(),
@@ -223,11 +254,15 @@ ui <- dashboardPage(
                                  selected= "Month",
                                  width ='30%'),
                   withSpinner(plotlyOutput("seasonalityresult"))
-              ), # box end bracket
-              br(),
-              br(),
+              )# box end bracket
               
-              box(width =10, status ="primary", title ="Demand forecasting",  collapsible = FALSE, solidHeader = TRUE,
+                       ),  ## end bracket of column
+              
+             
+              column( width =6,
+              box(width =10, status ="primary", title ="Demand forecasting",  collapsible = TRUE, solidHeader = TRUE,
+                  style='height:400px;overflow-y: scroll;',
+                  
                   h3('Seasonal/Trend/Residual decomposition'),
                   
                   selectizeInput("seasontypestl","Season type:", 
@@ -236,10 +271,30 @@ ui <- dashboardPage(
                                  width ='30%'),
                   withSpinner( plotOutput("stlresult")),
                   h3('Model prediction:'),
-                  numericInputIcon("dforeperiod","Prediction period:", value=6, min = 1, max = 20, 
-                                   icon =icon("sliders"), width ='30%'),
+                    
+                  fluidRow(width =12, 
+                           column(width =4,
+                  numericInputIcon("dforeperiod","Predicted period:", value=6, min = 1, max = 20, 
+                                   icon =icon("sliders"),
+                                   help_text = "Out of bound")
+                  ),
+                  column(width =3,
+                  numericInputIcon("modeltp","Tail period:", value=36, min = 1, max = 120, 
+                                   icon =icon("sliders"), 
+                                   help_text = "Out of bound")
+                  ),
+                  column(width =3,
+                  selectizeInput("seasontypest2","Season type:", 
+                                 choices =c("Month", "Quarter", "Year"),
+                                 selected= "Month")
+                  )
+                  ),
+                  
                   withSpinner( plotlyOutput("modelresult"))
-              )    
+              )    ##box end bracket
+              
+              ) ##column bracket
+              ) ##fluidrow bracket
               
       ), # End basket of dfore tab
       
@@ -421,7 +476,7 @@ ui <- dashboardPage(
 
 
 ## Part D server setup
-server <- function(input, output) { 
+server <- function(input, output,session) { 
   
   
   ## Data file update
@@ -530,10 +585,48 @@ server <- function(input, output) {
   })
   
   
+  
+  data_prod1 <- reactive({
+    if (is.null(input$file5)) {
+      # If no file is uploaded, use iris dataset
+      prod_exp
+      
+      
+    } else {
+      file <- input$file5
+      ext <- tools::file_ext(file$datapath)
+      
+      req(file)
+      validate(need(ext == input$filetype, "Please upload a csv file"))
+      
+      data<-read.csv(file$datapath, header = TRUE)
+      
+      
+      # Update product_list with unique products in the new dataset
+      product_list <- unique(data$Product)
+      
+      # Update choices in selectizeInput
+      updateSelectizeInput(session, "product", choices = product_list, selected = product_list[1])
+      
+      
+      # Update region_list with unique products in the new dataset
+      region_list <- unique(data$Product)
+      
+      # Update choices in selectizeInput
+      updateSelectizeInput(session, "product", choices = product_list, selected = product_list[1])
+      
+      data
+     
+   
+     
+    }
+    
+  })
+  
   output$dygraphresult<-renderDygraph({
     
     ## Subset and mutation
-    prod_exp_dygraph <-prod_exp |>
+    prod_exp_dygraph <- data_prod1() |>
       filter(Region ==input$region & Product%in% input$product) |>
       pivot_wider(names_from = Product, values_from =Volume)|> ##extend to wide format
       mutate(Month.num =match(Month, month.abb),
@@ -577,7 +670,7 @@ server <- function(input, output) {
     
     
     ## Convert to tsibble function
-    prod_exp_tsb<-prod_exp |>
+    prod_exp_tsb<- data_prod1()|>
       filter(Region ==input$region & Product%in% input$product)|>
       mutate(season = transform_time(Yearmonth))|>
       group_by(season,Region, Product) |>
@@ -605,6 +698,9 @@ server <- function(input, output) {
     
   })
   
+  
+  
+  
   output$stlresult<- renderPlot({
     ## Define time transformation function based on selected input
     transform_time <- switch(input$seasontypestl,
@@ -614,7 +710,7 @@ server <- function(input, output) {
     )
     
     ## Convert to tsibble function
-    prod_exp_tsb<-prod_exp |>
+    prod_exp_tsb<- data_prod1() |>
       filter(Region ==input$region & Product%in% input$product)|>
       mutate(season = transform_time(Yearmonth))|>
       group_by(season,Region, Product) |>
@@ -634,14 +730,14 @@ server <- function(input, output) {
   output$modelresult<- renderPlotly({
     
     ## Define time transformation function based on selected input
-    transform_time <- switch(input$seasontypestl,
+    transform_time <- switch(input$seasontypest2,
                              "Month" = yearmonth,
                              "Quarter" = yearquarter,
                              "Year" = function(x) year(yearmonth(x))
     )
     
     ## Convert to tsibble function
-    prod_exp_tsb<-prod_exp |>
+    prod_exp_tsb<-   data_prod1() |>
       filter(Region ==input$region & Product%in% input$product)|>
       mutate(season = transform_time(Yearmonth))|>
       group_by(season,Region, Product) |>
@@ -664,7 +760,7 @@ server <- function(input, output) {
       )## Calculate the upper/lower CI
     
     
-    prod_exp_tsb_tail<- prod_exp_tsb|>tail( n =36)
+    prod_exp_tsb_tail<- prod_exp_tsb|>tail( n =input$modeltp)
     
     ## Combine the data
     prod_exp_bind <-rbind(as.tibble(prod_exp_tsb) |> select(Product,season, Volume),
@@ -686,10 +782,14 @@ server <- function(input, output) {
       geom_ribbon( aes(x = season, ymin =low90, 
                        ymax =high90, fill = Product ), alpha =0.2) + 
       scale_fill_discrete_qualitative(palette ="Dynamic") +
-      geom_line( aes( season, Volume,color =Product),  size =0.8)
+      geom_line( aes( season, Volume,color =Product),  size =0.8)+
+      theme(legend.position = "bottom")
     
-    ggplotly(predictplot) 
+    ggplotly(predictplot) |>
+      layout(legend = list(orientation = 'h'))
   })
+  
+  
   
   output$sfcost<-renderDT({
     
@@ -1021,6 +1121,51 @@ server <- function(input, output) {
       write.csv(example, file)
     }
   )
+  
+  output$downloadData2 <- downloadHandler(
+    filename = function() {
+      # Use the selected dataset as the suggested file name
+      paste0("storage_template", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      write.csv(AMES_storage, file)
+    }
+  ) 
+  
+  
+  output$downloadData3 <- downloadHandler(
+    filename = function() {
+      # Use the selected dataset as the suggested file name
+      paste0("domestic_transportation_template", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      write.csv(AMES_dtrans, file)
+    }
+  ) 
+  
+  
+  
+  output$downloadData4 <- downloadHandler(
+    filename = function() {
+      # Use the selected dataset as the suggested file name
+      paste0("sea_freight_template", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      write.csv(AMES_sf, file)
+    }
+  ) 
+  
+  
+  output$downloadData5 <- downloadHandler(
+    filename = function() {
+      # Use the selected dataset as the suggested file name
+      paste0("forecast_template", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      write.csv(prod_exp, file)
+    }
+  ) 
+  
   
 }
 
