@@ -663,6 +663,8 @@ server <- function(input, output,session) {
   
   output$seasonalityresult <- renderPlotly({
     
+    
+
     ## Define time transformation function based on selected input
     transform_time <- switch(input$seasontype,
                              "Month" = yearmonth,
@@ -695,7 +697,7 @@ server <- function(input, output,session) {
         hoverlabel = list(bgcolor = "white"),
         hoverinfo = "text+y",
         xaxis = list(spikemode = 'across')) 
-    
+ 
   })
   
   
@@ -708,6 +710,8 @@ server <- function(input, output,session) {
                              "Quarter" = yearquarter,
                              "Year" = function(x) year(yearmonth(x))
     )
+    
+
     
     ## Convert to tsibble function
     prod_exp_tsb<- data_prod1() |>
@@ -728,13 +732,105 @@ server <- function(input, output,session) {
   })
   
   output$modelresult<- renderPlotly({
-    
     ## Define time transformation function based on selected input
     transform_time <- switch(input$seasontypest2,
                              "Month" = yearmonth,
                              "Quarter" = yearquarter,
                              "Year" = function(x) year(yearmonth(x))
-    )
+    )   
+    
+    
+    if (input$model==  "Rolling average"){
+      
+    
+      
+      prod_exp<-data_prod1()  |>
+        filter(Region ==input$region & Product %in% input$product)|>
+        mutate(
+          season  =transform_time ( Yearmonth))|>
+        group_by(season,Region, Product) |>
+        summarise(Volume=sum(Volume))
+      
+      n<-input$dforeperiod
+      
+      future_date <- rep(0, n)
+      
+      ## Iterate for upcoming month
+      for (i in 1:n) {
+        future_date[i] <- as.character(max(prod_exp$season) + i)
+        
+        
+      }
+      
+      unique_prod_len<- length(unique(prod_exp$Product))
+      
+      future_date_dt<- data.frame(season = rep( transform_time (future_date),unique_prod_len),
+                                  Product =rep( unique(prod_exp$Product), each = n))
+      
+      future_date_dt$Volume<-NA
+      
+      prod_exp_tail<-tail(prod_exp,12)|> select(season,Product,Volume
+      )
+      
+      prod_exp_rbind<-rbind(prod_exp_tail,future_date_dt)
+      
+      ## Iterate for roll mean
+      for ( i in 13:nrow(prod_exp_rbind)) {
+        start_index <- i - 12
+        end_index <- i - 1
+        prod_exp_rbind$Volume[i] <-round(sum(prod_exp_rbind$Volume[start_index:end_index], na.rm =TRUE)/12, digits =0)
+      }
+      
+      ## Get sigma
+      prod_exp_sigma<- 
+        prod_exp_rbind |> 
+        group_by(Product) |> 
+        summarise(sigma =sd(Volume)) 
+      
+      forecast_result<-prod_exp_rbind |>  
+        filter(season > max(prod_exp$season)) |> 
+        left_join(
+          prod_exp_sigma, by ="Product")|> 
+        mutate(
+          low80 =  Volume- 1.282 *sigma,
+          high80 =  Volume+ 1.282 *sigma,
+          low90 =  Volume- 1.645*sigma,
+          high90 =  Volume+ 1.645 *sigma)
+      
+      prod_exp_tail_final<-prod_exp_tail |> tail(n =input$modeltp)
+      
+      prod_exp_bind <-rbind(prod_exp_tail_final|> 
+                              select(Product,season, Volume),
+                            forecast_result |> 
+                              select( Product,season, Volume))
+      Sys.sleep(1)
+      
+      predictplot<-ggplot(data = forecast_result) +
+        geom_line(data=prod_exp_bind, 
+                  aes(season, Volume,color =Product), 
+                  size =0.8,linetype ="dotdash") +
+        theme_bw() +
+        geom_ribbon( aes(x = season, ymin =low80,  
+                         ymax =high80,fill = Product ), alpha =0.8) + 
+        geom_ribbon( aes(x = season, ymin =low90, 
+                         ymax =high90, fill = Product ), alpha =0.2) + 
+        scale_fill_discrete_qualitative(palette ="Dynamic") +
+        geom_line( aes( season, Volume,color =Product),  size =0.8)+
+        theme(legend.position = "bottom")
+      
+      ggplotly(predictplot) |>
+        layout(legend = list(orientation = 'h'))
+      
+      
+    } else {
+      
+     
+    ## Define model transformation function based on selected input
+    transform_model<- switch(input$model,
+                             "ETS" = ETS,
+                             "ARIMA" = ARIMA)
+    
+    
     
     ## Convert to tsibble function
     prod_exp_tsb<-   data_prod1() |>
@@ -746,7 +842,7 @@ server <- function(input, output,session) {
     
     ## Model prediction
     forecast_result<- prod_exp_tsb |>
-      model(ETS( Volume)) |> 
+      model( transform_model( Volume)) |> 
       forecast(h = input$dforeperiod) |>  
       as.tibble()  |> mutate(range =Volume,
                              Volume=.mean,
@@ -768,6 +864,10 @@ server <- function(input, output,session) {
     )  |> filter( season >=  prod_exp_tsb_tail$season[1])
     
     
+   
+    
+
+    }
     
     
     Sys.sleep(1)
@@ -786,7 +886,8 @@ server <- function(input, output,session) {
       theme(legend.position = "bottom")
     
     ggplotly(predictplot) |>
-      layout(legend = list(orientation = 'h'))
+      layout(legend = list(orientation = 'h')) 
+   
   })
   
   
@@ -882,7 +983,7 @@ server <- function(input, output,session) {
       formatCurrency(c("Pallet cost","CBM cost"), digits = 2)
     
     return(dtrans_dt)
-    
+   
   })
   
   
