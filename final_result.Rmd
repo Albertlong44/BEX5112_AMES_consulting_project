@@ -1,0 +1,298 @@
+---
+title: "Final report of data scenario testing"
+
+author: 
+-  "Student name: Albert,Varun, Ying & Saud"
+- "Email: ylon0012@student.monash.edu"
+date: 'Published on `r Sys.Date()`'
+output: 
+  bookdown::html_document2:
+    css: monashreport.css
+    includes:
+      before_body: AMES.html
+    toc: yes
+    toc_float: yes
+    toc_depth: 4
+    theme: sandstone
+    number_sections: false
+keep_md: true 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,eval =TRUE, message =FALSE, warning =FALSE)
+```
+
+<div style="border-top: 1px solid #888888; margin: 20px 0;"></div>
+
+## 🔍 Data briefing
+
+```{r}
+## library package
+library(tidyverse)
+library(fpp3)
+library(readxl)
+library(janitor)
+library(plotly)
+library(DT)
+library(knitr)
+library(colorspace)
+library(kableExtra)
+```
+
+
+
+
+::: {.callout-note title="The result of tree model" collapse="false"}
+
+The data contains total `110` valid observations(remove the rows where volume is equal to zero all the time) within `22`  specific items spreading in 5 regions(`ADE` `BRI` `MEL` `PER` `SYD`).
+```{r}
+example<-read_xlsx("data/AMES_example.xlsx")
+example_mt<- example |> filter( rowSums(example[, 11:53])!=0) |>
+  pivot_longer(-c(`Item & Region`:Cost), names_to = "Date", values_to ="Volume") |>  separate(Date,c("Month", "Year")) |> 
+  mutate(Yearmonth = paste(Year, Month),
+         Yearmonth =yearmonth(Yearmonth),
+         `Item Code` =factor(`Item Code`),
+          Month =factor(Month, levels =month.abb))
+
+
+```
+Here is the glimpse of the converted data in  <font color= #8b0000><b> long format</b></font> :
+```{r}
+str(example_mt)
+```
+
+
+
+:::
+
+
+# 💡 Pattern learning 
+
+## 📈 Historical pattern
+
+If displaying all data at once on the canvas will result in visual clutter and make it difficult to analyze the data intuitively, therefore, in the drawing part, only 10 sampled products will be displayed. However, in the backend calculations, all items will still be considered.the principle of the sample selection will based on the overall average volume of goods,by choosing  the <font color= #8b0000><b>top three</b></font>, <font color= #8b0000><b>middle four</b></font>, and <font color= #8b0000><b> bottom four </b></font> items, below is the item code I select for example:
+
+```{r check}
+
+sample_list<-c(1238, 1234,1271,1247,1246,1272,1239,1258,1260, 1259)
+
+example_mt |> group_by(`Item Code`) |>
+  summarise( `Avg volume` =mean(Volume)) |> 
+  arrange(-`Avg volume`) |> filter(`Item Code` %in% sample_list)|> datatable()|>formatRound(2,2)
+```
+Here is the plot of overall trend:
+
+
+```{r plot1, fig.height=7}
+
+
+
+color_list<- c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf")
+
+
+high <- c(1238, 1234, 1271)
+middle <- c(1247, 1246, 1272, 1239)
+low <- c(1258, 1260, 1259)
+example_mt<-example_mt |>
+  filter(`Item Code` %in% sample_list)|> 
+  mutate(Category = case_when(
+    `Item Code` %in% high ~ "High",
+    `Item Code` %in% middle ~ "Middle",
+    `Item Code` %in% low ~ "Low"
+  ),
+ Category =  factor(Category, levels =c("High", "Middle", "Low")))
+
+p1<-example_mt |>
+  
+  ggplot(aes(x= Yearmonth ,
+             y = sqrt(Volume) , linetype=Category ,
+             color = `Item Code` )) +
+  geom_line( size =1)+ theme_bw()+facet_wrap(.~Region, nrow =3)+
+  scale_color_manual(values =color_list)+ labs(title = "The overall movemnent of AMES sample products", y = "The sqrt mutation of Volume", x ="Month")
+
+ggplotly(p1)
+```
+
+
+
+
+
+
+
+
+
+
+## 📊 Seasonal  pattern
+
+
+```{r season, fig.height=8}
+p2<-example_mt |>
+  filter(`Item Code` %in% sample_list) |>  ggplot(aes(x= as.Date(Yearmonth),
+             y = sqrt(Volume) , linetype=Category ,
+             color = `Item Code` )) +
+  geom_line( size =1)+ theme_bw()+facet_grid( Region~Month) +labs( title="The overall movemnent of AMES sample products", y = "The sqrt mutation of Volume", x ="") +
+  theme( axis.text.x = element_text(
+    angle =-50 , hjust =-0.5))
+
+ggplotly(p2)|>
+      layout(legend = list(orientation = 'h')) 
+
+```
+
+# 💡 Demand forecasting
+
+## ✏️ STL decomposition
+
+```{r tsibble}
+example_tsb<-  example_mt |> as_tsibble(index =Yearmonth, key =c(Region, `Item Code`))
+```
+
+
+```{r stl, fig.height=6}
+ p3<-example_tsb |>
+      model(STL( Volume~ trend(window =5)+season( window ="periodic")))  |> components() |> pivot_longer(Volume:season_adjust,names_to = "Method", values_to ="Value") |> mutate( Method =factor(Method, levels = c("Volume", "trend","season_adjust","season_year", "remainder"))) |>
+  ggplot(aes(Yearmonth, Value, color =`Item Code`))+ geom_line() +theme_bw() + scale_color_manual(values =color_list) +facet_grid(Method ~Region )+ labs(title = "The STL decomposition of AMES sample products", y = " ", x ="")+
+  theme( axis.text.x = element_text(
+    angle =-50 , hjust =-0.5))
+ggplotly(p3)|>
+      layout(legend = list(orientation = 'h')) 
+```
+
+
+## 📑 model forecasting
+**ETS/ARIMA**
+```{r}
+example_tsb |>
+  filter(`Item Code` %in% sample_list)|> model(ETS=ETS(Volume), 
+                    ARIMA =ARIMA(Volume))|>  
+      forecast(h = 6) 
+```
+
+```{r}
+
+example_tsb |>
+  filter(`Item Code` %in% sample_list)|> model(ETS=ETS(Volume), 
+                    ARIMA =ARIMA(Volume)) |>  
+      forecast(h = 2) 
+```
+
+```{r}
+example_tsb_model<-example_tsb |> model(ETS=ETS(Volume), 
+                    ARIMA =ARIMA(Volume)) |>  
+      forecast(h = 6) 
+```
+
+
+
+```{r}
+example_tsb_model_tb<- example_tsb_model%>%  as.tibble() %>% mutate(Volume = as.character(Volume)) %>% rename(Distribution =Volume,
+Volume=.mean,
+Model =.model)
+```
+```{r}
+example_tsb_model_tbmt
+```
+
+```{r}
+example_tsb_model_tbmt<-example_tsb_model_tb |>  
+  mutate(var =as.numeric(str_extract(Distribution, "(?<=,\\s)\\d+\\.?\\d*(?:[eE][-+]?\\d+)?")),
+                             sigma =sqrt(var),
+                             low80 =  Volume - 1.282 *sigma,
+                             high80 =  Volume+ 1.282 *sigma,
+                             low90 =  Volume- 1.645*sigma,
+                             high90 =  Volume+ 1.645 *sigma
+      )
+
+
+example_tsb_model_tbmt_spl<- example_tsb_model_tbmt |>
+  filter(`Item Code` %in% sample_list) |>
+ mutate(Category = case_when(
+    `Item Code` %in% high ~ "High",
+    `Item Code` %in% middle ~ "Middle",
+    `Item Code` %in% low ~ "Low"
+  ),
+ Category =  factor(Category, levels =c("High", "Middle", "Low")))
+
+```
+```{r}
+example_tsb_model_tbmt_spl
+```
+
+```{r}
+p4<-example_tsb_model_tbmt_spl |>
+  ggplot(aes(Yearmonth,Volume,color = `Item Code`)) +geom_line() +facet_grid(Region~Model) +theme_bw()+ scale_color_manual(values =color_list)
+
+ggplotly(p4)|>
+      layout(legend = list(orientation = 'h')) + labs(title = "The ETS/ARIMA of AMES sample products", y = " ", x ="")
+```
+
+
+```{r}
+example_tsb_model_tbmt |>  datatable(
+      callback=JS('
+    $("button.buttons-copy").css({
+        "background": "#81D8D0",
+         "border": "2px solid #000000",
+         "color":"white",
+         "fontweight":"bold",  
+        "border-radius": "10px"
+    });
+    $("button.buttons-csv").css({
+        "background": "#FF7900",
+         "border": "2px solid #000000",  
+        "border-radius": "10px", 
+         "color":"white",
+         "fontweight":"bold"
+    });
+    
+    return table;
+')
+      
+      ,
+      extensions = c('Buttons', 'Scroller','FixedColumns'),
+      options = list(
+        scrollY = 400,
+        scroller = TRUE,
+        dom = 'Bfrtip',
+        scrollX = TRUE,
+        fixedColumns = TRUE,
+        
+        buttons = list( list(extend = "copy", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="14" viewBox="0 0 448 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M384 336H192c-8.8 0-16-7.2-16-16V64c0-8.8 7.2-16 16-16l140.1 0L400 115.9V320c0 8.8-7.2 16-16 16zM192 384H384c35.3 0 64-28.7 64-64V115.9c0-12.7-5.1-24.9-14.1-33.9L366.1 14.1c-9-9-21.2-14.1-33.9-14.1H192c-35.3 0-64 28.7-64 64V320c0 35.3 28.7 64 64 64zM64 128c-35.3 0-64 28.7-64 64V448c0 35.3 28.7 64 64 64H256c35.3 0 64-28.7 64-64V416H272v32c0 8.8-7.2 16-16 16H64c-8.8 0-16-7.2-16-16V192c0-8.8 7.2-16 16-16H96V128H64z"/></svg>'), 
+                        list(extend = "csv", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="16" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg>')) ,
+        initComplete = JS(
+          "function(settings, json) {",
+          "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
+          "}")))|> formatRound(6:12,0)
+```
+**Rolling average**
+
+# 💡 Decision model
+
+```{r}
+example_mt|> filter(`Item Code` =="1235")
+```
+
+
+
+
+```{r}
+example_tsb_model_filter<-
+```
+
+```{r}
+unique(example_mt$`Item Code`)
+```
+
+```{r}
+unique(example_tsb_model_tbmt$`Item Code`)
+```
+
+
+```{r}
+|> filter(Model =="ETS"& Yearmonth == yearmonth("2024 May"))
+
+ left_join(example_tsb_model_filter,example_mt[ ,1:10],by =c("Region","Item Code")) |> distinct()
+
+```
+
+

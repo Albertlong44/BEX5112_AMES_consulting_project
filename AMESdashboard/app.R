@@ -168,31 +168,31 @@ ui <- dashboardPage(
                      font-family: fantasy;"> AMES Project Report</h2>')),
               br(),
               br(),
-             fluidRow(width =12,
-              column(width =3,
-                             dropdownButton(
-                               inputId = "dropdown_data",
-                               label ="Data update",
-                               circle=FALSE,
-                               icon= icon("database"),
-                               status ="warning",
-                               fileInput("file5", "Choose supported File", accept = ".csv"),
-                               fluidRow(
-                                 column(width =6,
-                                        radioButtons("filetype5", "File type:", 
-                                                     choices =c(CSV="csv",Excel ="xlsx"), inline =TRUE)),
-                                 column(width =6,
-                                        downloadBttn(
-                                          outputId = "downloadData5",
-                                          label ="template",
-                                          size = "xs",
-                                          style = "bordered",
-                                          color = "primary"
-                                        ) )
-                               )
-                               
-                             ) ##dropdown
-                      ), ## coklumn
+              fluidRow(width =12,
+                       column(width =3,
+                              dropdownButton(
+                                inputId = "dropdown_data",
+                                label ="Data update",
+                                circle=FALSE,
+                                icon= icon("database"),
+                                status ="warning",
+                                fileInput("file5", "Choose supported File", accept = ".csv"),
+                                fluidRow(
+                                  column(width =6,
+                                         radioButtons("filetype5", "File type:", 
+                                                      choices =c(CSV="csv",Excel ="xlsx"), inline =TRUE)),
+                                  column(width =6,
+                                         downloadBttn(
+                                           outputId = "downloadData5",
+                                           label ="template",
+                                           size = "xs",
+                                           style = "bordered",
+                                           color = "primary"
+                                         ) )
+                                )
+                                
+                              ) ##dropdown
+                       ), ## coklumn
                        column(width =3,
                               dropdownButton(
                                 inputId = "dropdown_product",
@@ -231,72 +231,62 @@ ui <- dashboardPage(
                                                selected ="ETS",
                                                multiple= FALSE)  ) 
                        )
-              ), ## fluidrow end bracket
+              ), ##End of fluidrow
               br(),
               br(),
-              fluidRow(width =12,
-                       
-                       column( width =6,
-              box(width =10, status ="success", title ="Pattern learning",  collapsible = TRUE, solidHeader = TRUE,
-                  style='height:400px;overflow-y: scroll;',
-                  
-                  h3('Overall trend:'),
-                  numericInputIcon("dygraphperiod","Tail period:", value=36, min = 1, max = 120, 
-                                   icon =icon("sliders"), 
-                                   help_text = "Out of bound",
-                                   width ='30%'), 
-                  withSpinner(dygraphOutput("dygraphresult")),
-                  br(),
-                  br(),
-                  h3("Seasonality breakdown:"),
-                  selectizeInput("seasontype","Season type:", 
-                                 choices =c("Month", "Quarter"),
-                                 selected= "Month",
-                                 width ='30%'),
-                  withSpinner(plotlyOutput("seasonalityresult"))
-              )# box end bracket
               
-                       ),  ## end bracket of column
-              
-             
-              column( width =6,
-              box(width =10, status ="primary", title ="Demand forecasting",  collapsible = TRUE, solidHeader = TRUE,
-                  style='height:400px;overflow-y: scroll;',
-                  
-                  h3('Seasonal/Trend/Residual decomposition'),
-                  
-                  selectizeInput("seasontypestl","Season type:", 
-                                 choices =c("Month", "Quarter", "Year"),
-                                 selected= "Month",
-                                 width ='30%'),
-                  withSpinner( plotOutput("stlresult")),
-                  h3('Model prediction:'),
-                    
-                  fluidRow(width =12, 
-                           column(width =4,
-                  numericInputIcon("dforeperiod","Predicted period:", value=6, min = 1, max = 20, 
-                                   icon =icon("sliders"),
-                                   help_text = "Out of bound")
-                  ),
-                  column(width =3,
-                  numericInputIcon("modeltp","Tail period:", value=36, min = 1, max = 120, 
-                                   icon =icon("sliders"), 
-                                   help_text = "Out of bound")
-                  ),
-                  column(width =3,
-                  selectizeInput("seasontypest2","Season type:", 
-                                 choices =c("Month", "Quarter", "Year"),
-                                 selected= "Month")
-                  )
-                  ),
-                  
-                  withSpinner( plotlyOutput("modelresult"))
-              )    ##box end bracket
-              
-              ) ##column bracket
-              ) ##fluidrow bracket
-              
-      ), # End basket of dfore tab
+              tabBox(id = "tab", title = " ",width=12,
+                     
+                     tabPanel(title =" Pattern learning",
+                              h3('Overall trend:'),
+                              numericInputIcon("dygraphperiod","Tail period:", value=36, min = 1, max = 120, 
+                                               icon =icon("sliders"), 
+                                               help_text = "Out of bound",
+                                               width ='30%'), 
+                              withSpinner(dygraphOutput("dygraphresult")),
+                              br(),
+                              br(),
+                              h3("Seasonality breakdown:"),
+                              selectizeInput("seasontype","Season type:", 
+                                             choices =c("Month", "Quarter"),
+                                             selected= "Month",
+                                             width ='30%'),
+                              withSpinner(plotlyOutput("seasonalityresult"))
+                     
+                              ), ## END BRACKET OF tabPanel
+                     tabPanel(title ="Demand forecasting",
+                              h3('Seasonal/Trend/Residual decomposition'),
+                              
+                              selectizeInput("seasontypestl","Season type:", 
+                                             choices =c("Month", "Quarter", "Year"),
+                                             selected= "Month",
+                                             width ='30%'),
+                              withSpinner( plotOutput("stlresult")),
+                              h3('Model prediction:'),
+                              
+                              fluidRow(width =12, 
+                                       column(width =4,
+                                              numericInputIcon("dforeperiod","Predicted period:", value=6, min = 1, max = 20, 
+                                                               icon =icon("sliders"),
+                                                               help_text = "Out of bound")
+                                       ),
+                                       column(width =3,
+                                              numericInputIcon("modeltp","Tail period:", value=36, min = 1, max = 120, 
+                                                               icon =icon("sliders"), 
+                                                               help_text = "Out of bound")
+                                       ),
+                                       column(width =3,
+                                              selectizeInput("seasontypest2","Season type:", 
+                                                             choices =c("Month", "Quarter", "Year"),
+                                                             selected= "Month")
+                                       )
+                              ),
+                              
+                              withSpinner( plotlyOutput("modelresult")) 
+                              ) ## END BRACKET OF tabPanel
+                     
+              ) ## End bracket of tabBox 
+      ), # End bracket of dfore tab
       
       tabItem(tabName ="price",
               p(HTML('<h2 style="text-align: center;color:#8b0000;
