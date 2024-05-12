@@ -168,7 +168,7 @@ ui <- dashboardPage(
                      font-family: fantasy;"> AMES Project Report</h2>')),
               br(),
               br(),
-              fluidRow(width =12,
+             fixedRow(width =12,
                        column(width =3,
                               dropdownButton(
                                 inputId = "dropdown_data",
@@ -215,7 +215,7 @@ ui <- dashboardPage(
                                 status ="warning",
                                 selectizeInput("region","Choices:",
                                                choices = region_list,
-                                               selected =region_list[1],
+                                               selected ="MEL",
                                                multiple= FALSE) ) 
                               
                        ),
@@ -755,20 +755,23 @@ server <- function(input, output,session) {
       unique_prod_len<- length(unique(prod_exp$Product))
       
       future_date_dt<- data.frame(season = rep( transform_time (future_date),unique_prod_len),
-                                  Product =rep( unique(prod_exp$Product), each = n))
+                                  Product =rep( unique(prod_exp$Product), each = n))|>  
+        arrange(season,Product)
+      future_date_dt$Region<-"MEL"
       
       future_date_dt$Volume<-NA
       
-      prod_exp_tail<-tail(prod_exp,12)|> select(season,Product,Volume
-      )
+      prod_exp_tail<-tail(prod_exp,12*  unique_prod_len)|> 
+        select(season,Product,Volume )
       
       prod_exp_rbind<-rbind(prod_exp_tail,future_date_dt)
       
+      ## Start point for Iteration
+      Start_point<- 12*unique_prod_len +1
       ## Iterate for roll mean
-      for ( i in 13:nrow(prod_exp_rbind)) {
-        start_index <- i - 12
-        end_index <- i - 1
-        prod_exp_rbind$Volume[i] <-round(sum(prod_exp_rbind$Volume[start_index:end_index], na.rm =TRUE)/12, digits =0)
+      for ( i in  Start_point: nrow(prod_exp_rbind)) {
+        
+        prod_exp_rbind$Volume[i] <-round(sum(tail(prod_exp_rbind[prod_exp_rbind$Product == prod_exp_rbind$Product[i] & !is.na(prod_exp_rbind$Volume), ],12)$Volume  )/12 , digits =0)
       }
       
       ## Get sigma
@@ -787,7 +790,7 @@ server <- function(input, output,session) {
           low90 =  Volume- 1.645*sigma,
           high90 =  Volume+ 1.645 *sigma)
       
-      prod_exp_tail_final<-prod_exp_tail |> tail(n =input$modeltp)
+      prod_exp_tail_final<-prod_exp |> tail(n =as.numeric(input$modeltp)* unique_prod_len)
       
       prod_exp_bind <-rbind(prod_exp_tail_final|> 
                               select(Product,season, Volume),
