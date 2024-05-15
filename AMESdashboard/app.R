@@ -1072,13 +1072,13 @@ server <- function(input, output,session) {
       mutate(allocation_result_node_pr = case_when( 
         cbm <= 0 ~" No or wrong predictive orders detected",
         Region == "MEL" & cbm>0  ~ "NDC check",
-        Region != "MEL"& cbm >=  input$container  ~ "RDC: FCL for single sku",
-        Region != "MEL"& cbm<  input$container   &leftover_space>0 & leftover_space<= as.numeric(input$space)  ~ "RDC: FCL for single sku",
-        Region != "MEL"& cbm <  input$container  & consolidated_cbm >=  input$container   &leftover_space> as.numeric(input$space) ~"RDC: FCL for consolidated sku",
-        Region != "MEL"& consolidated_cbm <  input$container  ~"NDC check",
+        Region != "MEL"& cbm >=  as.numeric(input$container)  ~ "RDC: FCL for single sku",
+        Region != "MEL"& cbm<  as.numeric(input$container)   &leftover_space>0 & leftover_space<= as.numeric(input$space)  ~ "RDC: FCL for single sku",
+        Region != "MEL"& cbm <  as.numeric(input$container)  & consolidated_cbm >=   as.numeric(input$container)  &leftover_space> as.numeric(input$space) ~"RDC: FCL for consolidated sku",
+        Region != "MEL"& consolidated_cbm <  as.numeric(input$container)  ~"NDC check",
         TRUE ~ NA_character_
       ),  Warning_message= case_when( cbm <= 0 ~"No or wrong predictive orders detected, please check your data.",
-                                      consolidated_pkg_utilization<= input$airvol ~" Warning: This batch of shipment carries highair volumes.",
+                                      consolidated_pkg_utilization<=(1- as.numeric(input$airvol)) ~" Warning: This batch of shipment carries high air volumes.",
                                       leftover_space>0 & leftover_space<= as.numeric(input$space)  ~"Warning: The current CBM delivery is just below the FCL threshold. Consider adjusting the volume quantity to meet the FCL requirement.")
       
       ) 
@@ -1092,9 +1092,9 @@ server <- function(input, output,session) {
     example_join<- left_join(example_join, example_sum_ndc,  by = c("Supplier.Factory.code")) |> 
       mutate(
         allocation_result_node1 = case_when( 
-          allocation_result_node_pr == "NDC check" & cbm >= input$container  ~ "NDC: FCL for single sku",
-          allocation_result_node_pr == "NDC check" & cbm <  input$container   & leftover_space > 0 & leftover_space <= as.numeric(input$space)  ~ "NDC: FCL for single sku",
-          allocation_result_node_pr == "NDC check" & cbm <  input$container  & leftover_space > input$space & consolidated_cbm_ndc >= as.numeric(input$space)   ~ "NDC: FCL for consolidated sku",
+          allocation_result_node_pr == "NDC check" & cbm >=  as.numeric(input$container)  ~ "NDC: FCL for single sku",
+          allocation_result_node_pr == "NDC check" & cbm <  as.numeric(input$container)   & leftover_space > 0 & leftover_space <= as.numeric(input$space)  ~ "NDC: FCL for single sku",
+          allocation_result_node_pr == "NDC check" & cbm <  as.numeric(input$container)  & leftover_space > input$space & consolidated_cbm_ndc >= as.numeric(input$container)   ~ "NDC: FCL for consolidated sku",
           allocation_result_node_pr == "NDC check" & consolidated_cbm_ndc <  input$container  ~ "Other strategy to wait for FCL consolidation",
           TRUE~allocation_result_node_pr
         ),
@@ -1158,13 +1158,14 @@ server <- function(input, output,session) {
                                                `Short description` =Short.description,
                                                Brand =Brand_name,
                                                CBM = cbm,
+                                               `Forecast demand` =Forecast.demand,
                                                `Consol CBM` =consolidated_cbm,
                                                `NDC Consol CBM` =consolidated_cbm_ndc,
                                                `Cost diff` =cost_difference ,
                                                `Allocation result`= allocation_result_node_final ,
                                                `Warning message`=Warning_message)|>
       mutate(Month =as.character(Month)) |>
-      select(`Product code`,`Short description`,  Month,Region, `Allocation result`,`Warning message`,CBM,`Consol CBM`,`NDC Consol CBM`, `Cost diff` ) |> 
+      select(`Product code`,`Short description`,  Month,Region, `Allocation result`,`Warning message`,`Forecast demand`,CBM,`Consol CBM`,`NDC Consol CBM`, `Cost diff` ) |> 
       datatable(
         callback=JS('
     $("button.buttons-copy").css({
@@ -1203,7 +1204,7 @@ server <- function(input, output,session) {
               c("Allocation result","Warning message"), "white-space" = "pre-line"
             ) |> formatStyle("Warning message", 
                              color = "red")  |> 
-      formatString("Consol CBM", suffix= HTML(' m<sup>3</sup>')) 
+      formatString(c("Consol CBM","NDC Consol CBM", "CBM"), suffix= HTML(' m<sup>3</sup>')) 
   })
   
   
