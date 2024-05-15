@@ -26,7 +26,7 @@ knitr::opts_chunk$set(echo = FALSE,eval =TRUE, message =FALSE, warning =FALSE)
 
 ## 🔍 Data briefing
 
-```{r}
+```{r library}
 ## library package
 library(tidyverse)
 library(fpp3)
@@ -42,17 +42,38 @@ library(kableExtra)
 
 
 
+
 ::: {.callout-note title="The result of tree model" collapse="false"}
 
 The data contains total `110` valid observations(remove the rows where volume is equal to zero all the time) within `22`  specific items spreading in 5 regions(`ADE` `BRI` `MEL` `PER` `SYD`).
-```{r}
+
+
+
+```{r wrangle}
+
+sample_list<-c(1238, 1234,1271,1247,1246,1272,1239,1258,1260, 1259)
+
+color_list<- c("1238" ="#1f77b4", "1234"= "#ff7f0e", "1271"= "#2ca02c", "1247"= "#d62728", "1246"= "#9467bd", "1272"="#8c564b", "1239"="#e377c2", "1258"="#7f7f7f", "1260"= "#bcbd22", "1259"="#17becf")
+
+
+high <- c(1238, 1234, 1271)
+middle <- c(1247, 1246, 1272, 1239)
+low <- c(1258, 1260, 1259)
+
+
 example<-read_xlsx("data/AMES_example.xlsx")
 example_mt<- example |> filter( rowSums(example[, 11:53])!=0) |>
   pivot_longer(-c(`Item & Region`:Cost), names_to = "Date", values_to ="Volume") |>  separate(Date,c("Month", "Year")) |> 
   mutate(Yearmonth = paste(Year, Month),
          Yearmonth =yearmonth(Yearmonth),
          `Item Code` =factor(`Item Code`),
-          Month =factor(Month, levels =month.abb))
+          Month =factor(Month, levels =month.abb),
+         Category = case_when(
+    `Item Code` %in% high ~ "High",
+    `Item Code` %in% middle ~ "Middle",
+    `Item Code` %in% low ~ "Low"
+  ),
+ Category =  factor(Category, levels =c("High", "Middle", "Low")))
 
 
 ```
@@ -66,6 +87,7 @@ str(example_mt)
 :::
 
 
+
 # 💡 Pattern learning 
 
 ## 📈 Historical pattern
@@ -74,46 +96,36 @@ If displaying all data at once on the canvas will result in visual clutter and m
 
 ```{r check}
 
-sample_list<-c(1238, 1234,1271,1247,1246,1272,1239,1258,1260, 1259)
 
 example_mt |> group_by(`Item Code`) |>
   summarise( `Avg volume` =mean(Volume)) |> 
   arrange(-`Avg volume`) |> filter(`Item Code` %in% sample_list)|> datatable()|>formatRound(2,2)
 ```
-Here is the plot of overall trend:
+ the plot  \@ref(fig:plot1) of overall movement capture the <font color= #8b0000><b>  square-root transformation </b></font> of sampled product's volume over time:
 
 
-```{r plot1, fig.height=7}
+```{r plot1, fig.height=7, fig.cap="he overall movement of AMES sample products"}
 
 
 
-color_list<- c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf")
 
+example_mt_spl<-example_mt |>
+  filter(`Item Code` %in% sample_list)
 
-high <- c(1238, 1234, 1271)
-middle <- c(1247, 1246, 1272, 1239)
-low <- c(1258, 1260, 1259)
-example_mt<-example_mt |>
-  filter(`Item Code` %in% sample_list)|> 
-  mutate(Category = case_when(
-    `Item Code` %in% high ~ "High",
-    `Item Code` %in% middle ~ "Middle",
-    `Item Code` %in% low ~ "Low"
-  ),
- Category =  factor(Category, levels =c("High", "Middle", "Low")))
-
-p1<-example_mt |>
+p1<-example_mt_spl |>
   
   ggplot(aes(x= Yearmonth ,
              y = sqrt(Volume) , linetype=Category ,
              color = `Item Code` )) +
   geom_line( size =1)+ theme_bw()+facet_wrap(.~Region, nrow =3)+
-  scale_color_manual(values =color_list)+ labs(title = "The overall movemnent of AMES sample products", y = "The sqrt mutation of Volume", x ="Month")
+  scale_color_manual(values =color_list)+ labs(title = "The overall movement of AMES sample products", y = "The sqrt mutation of Volume", x ="Month")
 
 ggplotly(p1)
 ```
 
+- For the hot-selling product(`1234`,`1238` and `1271`),it is noticeable that they are more susceptible to  <font color= #8b0000><b>  non-seasonal influences </b></font> , with more volatile fluctuation and regional differentiation in  time series.-- Product Z: erratic sku.
 
+- For niche product(`1258`,`1259` and `1260`) are tend to have a flat line sticked to the zero baseline across different periods and regions, their volumes are relatively stable. -- Product X: stable sku.
 
 
 
@@ -124,13 +136,13 @@ ggplotly(p1)
 
 ## 📊 Seasonal  pattern
 
-
-```{r season, fig.height=8}
-p2<-example_mt |>
+ the plot  \@ref(fig:season) showcase overall movement in subseries breakdown.
+```{r season, fig.height=8, fig.cap= "The overall movement in monthly breakdown"}
+p2<-example_mt_spl |>
   filter(`Item Code` %in% sample_list) |>  ggplot(aes(x= as.Date(Yearmonth),
              y = sqrt(Volume) , linetype=Category ,
              color = `Item Code` )) +
-  geom_line( size =1)+ theme_bw()+facet_grid( Region~Month) +labs( title="The overall movemnent of AMES sample products", y = "The sqrt mutation of Volume", x ="") +
+  geom_line( size =1)+ theme_bw()+facet_grid( Region~Month) +labs( title="The month breakdown of AMES sample products", y = "The sqrt mutation of Volume", x ="") +
   theme( axis.text.x = element_text(
     angle =-50 , hjust =-0.5))
 
@@ -139,19 +151,60 @@ ggplotly(p2)|>
 
 ```
 
+
+- Except for  hot-selling product, other products don't have noticeable ebbs and flows.
+
+
+- As a new launch product, `1271` is still under expansion stage, which is prominent on `Jul` and `Aug`.
+
+- `1234` and `1271` are  <font color= #8b0000><b>  parallel</b></font> in most of region & month combo, with similar endogenous/exogenous impact factors.
+
+- Region disparity: `Sydney` and `Melbourne` has the most conspicuous variability in year-to-year monthly change, vice versa in `Adelaide`.
+
+
 # 💡 Demand forecasting
 
 ## ✏️ STL decomposition
 
 ```{r tsibble}
 example_tsb<-  example_mt |> as_tsibble(index =Yearmonth, key =c(Region, `Item Code`))
+example_tsb_ctgy<- example_tsb |> select(Category)
+
 ```
 
 
-```{r stl, fig.height=6}
- p3<-example_tsb |>
-      model(STL( Volume~ trend(window =5)+season( window ="periodic")))  |> components() |> pivot_longer(Volume:season_adjust,names_to = "Method", values_to ="Value") |> mutate( Method =factor(Method, levels = c("Volume", "trend","season_adjust","season_year", "remainder"))) |>
-  ggplot(aes(Yearmonth, Value, color =`Item Code`))+ geom_line() +theme_bw() + scale_color_manual(values =color_list) +facet_grid(Method ~Region )+ labs(title = "The STL decomposition of AMES sample products", y = " ", x ="")+
+
+STL decomposition, or Seasonal and Trend decomposition using Loess, is a statistical method used for decomposing a time series into three components: seasonality, trend, and remainder (residual).
+
+Here's a breakdown of each component:
+
+- <font color= #8b0000><b> Seasonal Component </b></font> : This represents the repeating pattern or seasonality in the data. It captures variations that occur at regular intervals, such as daily, weekly, monthly, or yearly patterns.
+
+- <font color= #8b0000><b> Trend Component </b></font> : This captures the long-term movement or direction of the time series data. It represents the underlying trend or tendency of the data over time, ignoring the seasonal fluctuations.
+
+- <font color= #8b0000><b> Remainder (Residual) Component </b></font> : This component captures the random fluctuations or noise that cannot be attributed to the seasonality or trend. It represents the variability in the data that remains after removing the seasonal and trend components.
+
+
+The STL decomposition plot  \@ref(fig:stl) reports convert the volume into  trend, cyclical pattern(adjusted/unadjusted) and remainder respectively.
+
+
+
+```{r stl, fig.height=6, fig.cap= "The STL decomposition of AMES sample products"}
+ p3<-example_tsb  |> filter(`Item Code` %in% sample_list)|> 
+      model(STL( Volume~ trend(window =5)+season( window ="periodic")))  |> 
+  components() |> 
+  pivot_longer(Volume:season_adjust,
+               names_to = "Method", 
+               values_to ="Value") |> 
+  mutate( Method =factor(Method,
+                         levels = c("Volume", "trend","season_adjust","season_year", "remainder"))) |> 
+  left_join(example_tsb_ctgy)|>
+  ggplot(aes(Yearmonth,
+             Value, color =`Item Code`, linetype = Category))+
+  geom_line() + 
+  theme_bw() + 
+  scale_color_manual(values =color_list) + 
+  facet_grid(Method ~Region )+ labs(title = "The STL decomposition of AMES sample products", y = " ", x ="", linetype =" ")+
   theme( axis.text.x = element_text(
     angle =-50 , hjust =-0.5))
 ggplotly(p3)|>
@@ -159,76 +212,189 @@ ggplotly(p3)|>
 ```
 
 
+-Trend: Majority of products maintains dynamic equilibrium and recently gradually taper off.
+
+-Seasonality: Hot-selling has a  <font color= #8b0000><b> quarter cyclical </b></font>  pattern following `bimodal` or `multimodal` Distributions :The peak normally took place on <font color= #8b0000><b> winter season</b></font> while <font color= #8b0000><b> summer season </b></font> is normally trough season.
+
+-Remainder: High uncertainty on Sydney and Melbourne, vice versa in Perth and Adelaide.
+
+
+As for the middle-class, since the overall plotting zoom in on the result on those top-selling products, we barely cannot observe valuable information on confusion product, so I extract their performance solely on  plot  \@ref(fig:stlmiddle):
+```{r stlmiddle, fig.cap= "The STL decomposition of AMES confusion products"}
+p<-example_tsb  |> filter(`Item Code` %in% middle)|> 
+      model(STL( Volume~ trend(window =5)+season( window ="periodic")))  |> 
+  components() |> 
+  pivot_longer(Volume:season_adjust,
+               names_to = "Method", 
+               values_to ="Value") |> 
+  mutate( Method =factor(Method,
+                         levels = c("Volume", "trend","season_adjust","season_year", "remainder"))) |> 
+  left_join(example_tsb_ctgy)|>
+  ggplot(aes(Yearmonth,
+             Value, color =`Item Code`, linetype = Category))+
+  geom_line() + 
+  theme_bw() + 
+  scale_color_manual(values =color_list) + 
+  facet_grid(Method ~Region )+ labs(title = "The STL decomposition of AMES sample products", y = " ", x ="", linetype =" ")+
+  theme( axis.text.x = element_text(
+    angle =-50 , hjust =-0.5))
+ggplotly(p)|>
+      layout(legend = list(orientation = 'h')) 
+```
+We can notice their cyclical pattern is varied and incorporated for  exceptional cases:
+
+- majority is multivariate  peaks but `1272` in Perth only get single peak on Aug.
+
+- majority in Melbourne and Sydney region still maintain certain seasonality except `1247`
+
+
+
+
+Conclusion on <font color= #8b0000><b>  model selection </b></font> 
+
+Hot-selling product or region in Sydney and Melbourne: ETS/ARIMA
+
+Niche product or region in Adelaide: 12 month rolling average
+
+Middle(confusion) product: ETS/ARIMA comparison
+
 ## 📑 model forecasting
 **ETS/ARIMA**
+
+
+
+The  <font color= #8b0000><b> ETS model</b></font>, standing for Error, Trend, and Seasonality, is a type of time series forecasting model commonly used in statistics and econometrics. It decomposes a time series into three components:
+
+-  <font color= #8b0000><b>Error (E)</b></font> : This component represents the random variation or noise in the data that cannot be explained by the trend or seasonality. It is often assumed to follow a normal distribution with mean zero.
+
+- <font color= #8b0000><b>Trend (T)</b></font> : This component captures the long-term movement or direction of the time series data. It represents the underlying trend or tendency of the data over time. The trend component can be modeled using various methods, such as exponential smoothing or linear regression.
+
+- <font color= #8b0000><b>Seasonality (S)</b></font>: This component represents the repeating patterns or cycles in the data that occur at fixed intervals, such as daily, weekly, monthly, or yearly patterns. Seasonality can be modeled using methods like seasonal decomposition or seasonal exponential smoothing.
+ 
+ 
+The <font color= #8b0000><b>ARIMA model</b></font>, which stands for AutoRegressive Integrated Moving Average, is another popular time series forecasting model commonly used in statistics and econometrics. It is a combination of three components:
+
+- <font color= #8b0000><b>AutoRegressive </b></font>(p) </b></font> Component: This component models the relationship between an observation and a certain number of lagged observations (i.e., its own past values). It captures the linear dependence between the current value and its past values.
+
+- <font color= #8b0000>Integrated </b></font> (d) Component: This component represents the differencing of the original time series data to make it stationary. Stationarity is a key assumption in many time series models, including ARIMA. The integrated component accounts for the number of differencing operations needed to achieve stationarity.
+
+-  <font color= #8b0000><b> Moving Average (q) </b></font> Component: This component models the relationship between an observation and a residual error from a moving average model applied to lagged observations of the time series. It captures the dependence between the current value and the past forecast errors.
+
+The formula can be represented as:
+
+$$ Y_t =c+ϕ_1Y_{t−1}+ϕ_2Y_{t−2}+...+ϕ_pY_{t−p} +ε +θ_1ε_{t-1}+θ_2ε_{t-2} +...+θ_pε_{t-p}$$
+Where 
+
+1). $ϕ_1,ϕ_2...ϕ_p$ are the autoregressive coefficients.
+
+2). $θ__1,θ__2...θ__p$ are the moving average coefficients.
+
+3). $ε_t$ is the error term at time 𝑡
+
 ```{r}
-example_tsb |>
-  filter(`Item Code` %in% sample_list)|> model(ETS=ETS(Volume), 
-                    ARIMA =ARIMA(Volume))|>  
+example_tsb_model<-example_tsb  |> model(ETS=ETS(Volume   ~ error("A") + trend("A") +  season("A") ), ARIMA =ARIMA(Volume))|>  
       forecast(h = 6) 
 ```
 
-```{r}
-
-example_tsb |>
-  filter(`Item Code` %in% sample_list)|> model(ETS=ETS(Volume), 
-                    ARIMA =ARIMA(Volume)) |>  
-      forecast(h = 2) 
-```
-
-```{r}
-example_tsb_model<-example_tsb |> model(ETS=ETS(Volume), 
-                    ARIMA =ARIMA(Volume)) |>  
-      forecast(h = 6) 
-```
 
 
 
 ```{r}
-example_tsb_model_tb<- example_tsb_model%>%  as.tibble() %>% mutate(Volume = as.character(Volume)) %>% rename(Distribution =Volume,
+example_tsb_model_tb<- 
+  example_tsb_model%>% 
+  as.tibble() %>% 
+  mutate(Volume = as.character(Volume)) %>%
+  rename(Distribution =Volume,
 Volume=.mean,
 Model =.model)
 ```
-```{r}
-example_tsb_model_tbmt
-```
+
+
 
 ```{r}
 example_tsb_model_tbmt<-example_tsb_model_tb |>  
   mutate(var =as.numeric(str_extract(Distribution, "(?<=,\\s)\\d+\\.?\\d*(?:[eE][-+]?\\d+)?")),
                              sigma =sqrt(var),
-                             low80 =  Volume - 1.282 *sigma,
-                             high80 =  Volume+ 1.282 *sigma,
+                             low95 =  Volume -1.96*sigma,
+                             high95 =  Volume+ 1.96 *sigma,
                              low90 =  Volume- 1.645*sigma,
-                             high90 =  Volume+ 1.645 *sigma
+                             high90 =  Volume+ 1.645 *sigma,
+          `Safety stock` = (high95*45)/30
       )
 
 
-example_tsb_model_tbmt_spl<- example_tsb_model_tbmt |>
-  filter(`Item Code` %in% sample_list) |>
- mutate(Category = case_when(
-    `Item Code` %in% high ~ "High",
-    `Item Code` %in% middle ~ "Middle",
-    `Item Code` %in% low ~ "Low"
-  ),
- Category =  factor(Category, levels =c("High", "Middle", "Low")))
+
 
 ```
 ```{r}
-example_tsb_model_tbmt_spl
+example_tsb_model_tbmt_spl<-example_tsb_model_tbmt |> 
+  filter(`Item Code` %in% c( high, middle))|> mutate(Category = if_else( `Item Code` %in% high,"High","Middle"))
 ```
 
-```{r}
+The plot \@ref(fig:ets) exhibits the performance of ETS& ARIMA model prediction in region breakdown:
+
+
+
+```{r ets, fig.cap ="The ETS&ARIMA model predicton of AMES sample products"}
 p4<-example_tsb_model_tbmt_spl |>
-  ggplot(aes(Yearmonth,Volume,color = `Item Code`)) +geom_line() +facet_grid(Region~Model) +theme_bw()+ scale_color_manual(values =color_list)
+  ggplot(aes(Yearmonth,Volume,linetype =Category,color = `Item Code`)) +geom_line() +facet_grid(Region~Model) +theme_bw()+ scale_color_manual(values =color_list) + 
+  labs(title = "The ETS&ARIMA model predicton of AMES sample products", y = " ", x ="",linetype=" ")
 
 ggplotly(p4)|>
-      layout(legend = list(orientation = 'h')) + labs(title = "The ETS/ARIMA of AMES sample products", y = " ", x ="")
+      layout(legend = list(orientation = 'h'))
+```
+In this sample, ETS  model is more  proficient  in capture dynamic change in upcoming volume compare  with ARIMA model(most of them are horizontal lines). The potential reason is The parameters of ARIMA model is automatically selected by computer  and it is not  that robust since the trend is un-stabilized.
+
+Below is the plot \@ref(fig:ets) integrates historical records and predictive value in ETS model for hot selling product in the same canvas, so we can notice excellent  fits in  the hot selling item's data properly.
+
+
+
+```{r modelcb, fig.cap="The historical trend + ETS model prediction in hot selling product"}
+
+
+example_tsb_org<-as.tibble(example_tsb )|>  
+                          filter( `Item Code` %in%c(high)) |>
+                          select(Yearmonth,Volume,Category, Region, `Item Code`)
+
+
+example_tsb_call<-example_tsb_model_tbmt_spl|>  
+                          filter( Model =="ETS" &`Item Code` %in%c(high))
+
+model_ets_high<-example_tsb_org|>
+  ggplot(aes(Yearmonth,Volume,color = `Item Code`)) + 
+  geom_line( linetype =4) +
+  geom_line(data =example_tsb_call,aes( Yearmonth, Volume,color = `Item Code`))+facet_wrap(.~Region, nrow =3)+theme_bw()+ scale_color_manual(values =color_list)+
+  labs(title ="The historical trend + ETS model prediction in hot selling product")
+
+ggplotly(model_ets_high)|>
+      layout(legend = list(orientation = 'h'))
 ```
 
+As for confusion product, the performance also  get the constraint by residual that cannot explained by the model. E.g. `1246` in Brisbane and Sydney.
+```{r etsmiddle, fig.cap ="The historical trend + ETS model prediction in confusion product"}
+example_tsb_org_mid<-as.tibble(example_tsb )|>  
+                          filter( `Item Code` %in%c(middle)) |>
+                          select(Yearmonth,Volume,Category, Region, `Item Code`)
 
-```{r}
-example_tsb_model_tbmt |>  datatable(
+
+example_tsb_call_mid<-example_tsb_model_tbmt_spl|>  
+                          filter( Model =="ETS" &`Item Code` %in%c(middle))
+
+model_actual<-example_tsb_org_mid|>
+  ggplot(aes(Yearmonth,Volume,color = `Item Code`)) + 
+  geom_line( linetype =4) +
+  geom_line(data =example_tsb_call_mid,aes( Yearmonth, Volume,color = `Item Code`))+facet_wrap(.~Region, nrow =3)+theme_bw()+ scale_color_manual(values =color_list)+
+  labs(title ="The historical trend + ETS model prediction in confusion product")
+
+ggplotly(model_actual)|>
+      layout(legend = list(orientation = 'h'))
+```
+
+The table reports the model result for all relevant data by ETS/ARIMA model forecasting, including their 90% and 95% safety stock,sigma and safety stock adjustment(assuming is shipment leadtime is 45 days).
+```{r table1, fig.width =8}
+example_tsb_model_tbmt  |> 
+  mutate( Yearmonth =as.character(Yearmonth)) |> 
+  datatable( filter ="top",
       callback=JS('
     $("button.buttons-copy").css({
         "background": "#81D8D0",
@@ -262,37 +428,393 @@ example_tsb_model_tbmt |>  datatable(
         initComplete = JS(
           "function(settings, json) {",
           "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
-          "}")))|> formatRound(6:12,0)
+          "}")))|> formatRound(6:13,0)
 ```
 **Rolling average**
 
+
+```{r cal1}
+ n<-6
+      
+      future_date <- rep(0, n)
+      
+      ## Iterate for upcoming month
+      for (i in 1:n) {
+        future_date[i] <- as.character(max(example_mt$Yearmonth) + i)
+        
+        
+      }
+        unique_prod_len<-length(unique(example_mt$`Item & Region`))
+  
+        
+         future_date_dt<- data.frame(Yearmonth= rep( yearmonth (future_date),unique_prod_len),
+                                  `Item & Region` =rep( unique(example_mt$`Item & Region`), each = n))|>  rename(`Item & Region` =Item...Region)|> 
+        arrange(Yearmonth, `Item & Region`)
+         
+         future_date_dt$Volume<-NA
+      
+```
+
+
+
+
+```{r cal2}
+example_mt_arrange<- example_mt |>arrange(Yearmonth,`Item & Region`)
+
+
+   example_mt_tail<-tail(example_mt_arrange,12*  unique_prod_len)|> 
+  
+select(Yearmonth,`Item & Region`,Volume )
+   
+   
+   
+    example_mt_rbind<-rbind( example_mt_tail, future_date_dt)
+    
+     Start_point<- 12*unique_prod_len +1
+
+```
+
+
+
+```{r cal3}
+
+
+    for ( i in  Start_point: nrow( example_mt_rbind)) {
+        
+         example_mt_rbind$Volume[i] <-round(sum(tail( example_mt_rbind[example_mt_rbind$`Item & Region` == example_mt_rbind$`Item & Region`[i] & !is.na(example_mt_rbind$Volume), ],12)$Volume  )/12 , digits =0)
+      }
+
+ 
+ 
+```
+
+
+
+
+
+
+```{r cal4}
+example_mt_rbind<-example_mt_rbind |> mutate(`Item Code` = substr(`Item & Region`, 1, 4),
+                         Region = substr(`Item & Region`, 5, 7))
+     
+
+example_mt_sigma<- 
+       example_mt_rbind |> 
+        group_by(`Item & Region`) |> 
+        summarise(sigma =sd(Volume))   
+
+
+example_mt_rbind<-example_mt_rbind |> filter(Yearmonth > max(example_mt$Yearmonth))|> 
+        left_join(
+          example_mt_sigma, by ="Item & Region")|>mutate(
+                                 var =sigma^2,
+                                low95 =  Volume -1.96*sigma,
+                             high95 =  Volume+ 1.96 *sigma,
+                             low90 =  Volume- 1.645*sigma,
+                             high90 =  Volume+ 1.645 *sigma,
+          `Safety stock` = (high95*45)/30
+      )
+
+
+```
+The plot \@ref(fig:rollavg) exhibits the result of 12 month rolling model prediction in region breakdown as a stationary line with minor:
+```{r rollavg, fig.cap ="The 12 month rolling average model predicton of AMES sample products"}
+example_mt_rbind_spl<-example_mt_rbind |> 
+  filter( `Item Code` %in% c(middle,low))|>
+  mutate( Category =if_else(`Item Code` %in% middle,"Middle", "Low"),
+          Category =factor(Category, levels =c("Middle", "Low")))
+  
+  
+ p5<-example_mt_rbind_spl|> ggplot(aes(Yearmonth,Volume,color = `Item Code`, linetype =Category)) +geom_line()+facet_wrap(.~Region, nrow =3)+theme_bw()+ scale_color_manual(values =color_list) + 
+  labs(title = "The 12 month rolling average model predicton of AMES sample products", y = " ", x ="",linetype=" ")
+ 
+ ggplotly(p5)|>
+      layout(legend = list(orientation = 'h'))
+```
+
+
+When we concat with the historical data, it proves our assumptions:
+
+1. In Adelaide region and niche product, the prediction is aligned with historical data keep at certain level.
+
+2. However, for confusion product in other regions, it gives a gradual ascend slope  and fails to acquire the the peak and trough. So in this particular sample, except for region in Adelaide, we are keen to  apply ETS method to confusion products.
+
+
+```{r rollavgcombo, fig.cap ="The historical trend + 12 month rolling average prediction"}
+example_tsb_org_roll<-as.tibble(example_tsb )|>  
+                          filter( `Item Code` %in%c( middle,low)) |>
+                          select(Yearmonth,Volume,Category, Region, `Item Code`)
+
+
+model_roll<-example_tsb_org_roll|>
+  ggplot(aes(Yearmonth,Volume,color = `Item Code`)) + 
+  geom_line( linetype =4) +
+  geom_line(data =example_mt_rbind_spl,aes( Yearmonth, Volume,color = `Item Code`))+facet_wrap(.~Region, nrow =3)+theme_bw()+ scale_color_manual(values =color_list)+
+  labs(title ="The historical trend + 12 month rolling average prediction")
+
+ggplotly(model_roll)|>
+      layout(legend = list(orientation = 'h'))
+```
+The table reports the model result for all relevant data by ETS/ARIMA model forecasting, including their 90% and 95% safety stock,sigma and safety stock adjustment(assuming is shipment leadtime is 45 days).
+
+```{r table2 , fig.width =8}
+example_mt_rbind |> mutate( Yearmonth =as.character(Yearmonth)) |>
+  select(-`Item & Region`) |>
+  datatable( filter ="top",
+      callback=JS('
+    $("button.buttons-copy").css({
+        "background": "#81D8D0",
+         "border": "2px solid #000000",
+         "color":"white",
+         "fontweight":"bold",  
+        "border-radius": "10px"
+    });
+    $("button.buttons-csv").css({
+        "background": "#FF7900",
+         "border": "2px solid #000000",  
+        "border-radius": "10px", 
+         "color":"white",
+         "fontweight":"bold"
+    });
+    
+    return table;
+')
+      
+      ,
+      extensions = c('Buttons', 'Scroller','FixedColumns'),
+      options = list(
+        scrollY = 400,
+        scroller = TRUE,
+        dom = 'Bfrtip',
+        scrollX = TRUE,
+        fixedColumns = TRUE,
+        
+        buttons = list( list(extend = "copy", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="14" viewBox="0 0 448 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M384 336H192c-8.8 0-16-7.2-16-16V64c0-8.8 7.2-16 16-16l140.1 0L400 115.9V320c0 8.8-7.2 16-16 16zM192 384H384c35.3 0 64-28.7 64-64V115.9c0-12.7-5.1-24.9-14.1-33.9L366.1 14.1c-9-9-21.2-14.1-33.9-14.1H192c-35.3 0-64 28.7-64 64V320c0 35.3 28.7 64 64 64zM64 128c-35.3 0-64 28.7-64 64V448c0 35.3 28.7 64 64 64H256c35.3 0 64-28.7 64-64V416H272v32c0 8.8-7.2 16-16 16H64c-8.8 0-16-7.2-16-16V192c0-8.8 7.2-16 16-16H96V128H64z"/></svg>'), 
+                        list(extend = "csv", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="16" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg>')) ,
+        initComplete = JS(
+          "function(settings, json) {",
+          "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
+          "}")))|> formatRound(5:11,0)
+```
+
 # 💡 Decision model
 
+
+## 🚀 Update
+To cascader the result to the Decision model, here is the tailor update for this decision model solution:
+
+- Take the result of 2024 May safety stock
+
+- The safety stock will compare with Economic Order Quantity (EOQ) of the sku
+
+- CBM = Safety stock*(Pallet CBM/Pallet quantity)
+
+- No product air volume for calculation
+
+- For sku not  covered in sample list, temporary use ETS prediction
+
+
+
+## 🧭 Backend logic 
+
+
+ <font color= #8b0000> Node 1: Full container analysis </b></font>
+
+- (½)RDC rule:
+
+a).  Region is "MEL" and cbm>0 : "NDC check " – temporary stage
+
+b).  Except for "MEL" region:
+        
+        1.single cbm >= container threshold: "RDC: FCL for single sku"
+        
+        2. single cbm <= container threshold & remaining space is within [0,5%]:"RDC: FCL for single sku by adjusting the              volume quantity"
+        
+        3.single cbm <= container threshold  but can do consol cbm: "RDC: FCL for consolidated sku"
+        
+c). Consol CBM <= container threshold  ~"NDC check" -Preliminary stage, go for NDC rule validation
+
+d). Not applicable value: NA
+
+e). CBM<=0, "No or wrong predictive orders detected"
+
+-  NDC rule:
+
+a). single cbm >= container threshold: "NDC: FCL for single sku"
+
+b). single cbm <= container threshold & remaining space is within [0,5%]:"NDC: FCL for single sku by adjusting the              volume quantity "
+
+c). single cbm <= container threshold  but can do consol cbm: "NDC: FCL for consolidated sku"
+
+d). All conditions are unmatched : "Other strategy to wait for FCL consolidation"-- Rare case in actual practice
+
+
+
+## ⌛ Sample testing
+
+
+```{r modelbind}
+high_predict<-example_tsb_model_tbmt |> filter(`Item Code` %in% high & Yearmonth == yearmonth("2024 May")& Model =="ETS")|> select(Region, Yearmonth,`Item Code`,`Safety stock`)
+
+middle_ETS_predict<- example_tsb_model_tbmt |> filter(`Item Code` %in% middle & Region != "ADE" & Yearmonth == yearmonth("2024 May")& Model =="ETS")|> select(Region, Yearmonth,`Item Code`,`Safety stock`)
+
+
+low_predict<- example_mt_rbind|> filter(`Item Code` %in% low & Yearmonth == yearmonth("2024 May"))|> select(Region, Yearmonth,`Item Code`,`Safety stock`)
+
+middle_roll_predict<- example_mt_rbind |> filter(`Item Code` %in% middle & Region == "ADE" & Yearmonth == yearmonth("2024 May"))|> select(Region, Yearmonth,`Item Code`,`Safety stock`)
+
+
+Other_predict<-   example_tsb_model_tbmt |> filter(!(`Item Code` %in% sample_list) & Yearmonth == yearmonth("2024 May")& Model =="ETS")|> select(Region, Yearmonth,`Item Code`,`Safety stock`)
+
+predict_bind<- rbind(high_predict,middle_ETS_predict,middle_roll_predict,low_predict,Other_predict)
+
+
+
+
+predict_result<-left_join(predict_bind,example_mt[1:10], by =c("Region","Item Code")) |> distinct()
+```
+
+
+
+ 
+  
+
+```{r readcost}
+storage_cost<-read.csv("data/Storage_update.csv")|> 
+      rename( rdc_storage=`RDC.CBM`,
+              ndc_storage =`NDC.CBM`)
+
+dtrans_cost<-read.csv("data/dtrans_update.csv")|> filter(Origin =="VIC")
+```
 ```{r}
-example_mt|> filter(`Item Code` =="1235")
+  predict_result_mt<-predict_result |> mutate(`Safety stock` = round( `Safety stock`,0),
+                             Determine_vol=if_else(`Safety stock`< E.O.Q., E.O.Q.,`Safety stock`),
+                CBM= Determine_vol*`Pack cubic metres`/`Pack Qty`,
+                leftover_space= (1- CBM/(67*0.95))*100)
+```
+
+
+```{r modelbuild}
+ 
+
+
+predict_result_sum<-   predict_result_mt|>
+      group_by(Supplier,Region) |> 
+      summarise(Consol_CBM = round(sum(CBM),digits =2)) 
+
+
+predict_result_pr<-left_join(predict_result_mt, predict_result_sum,
+                            by = c("Supplier", "Region"))|>
+      mutate(allocation_result_node_pr = case_when( 
+        CBM <= 0 ~"No or wrong predictive orders detected",
+        Region == "MEL" & CBM>0  ~ "NDC check",
+        Region != "MEL"& CBM>=  67*0.95 ~ "RDC: FCL for single sku",
+        Region != "MEL"& CBM < 67*0.95 &leftover_space> 0 &  leftover_space<=5~"RDC: FCL for single sku by adjusting the volume quantity",
+        Region != "MEL"& CBM < 67*0.95  &  Consol_CBM >=  67*0.95 & leftover_space>5 ~"RDC: FCL for consolidated sku",
+        Region != "MEL"& Consol_CBM  <  67*0.95  ~"NDC check",
+        TRUE ~ NA_character_
+      ))
+
+ 
+predict_result_sum_ndc<- predict_result_pr |> filter(allocation_result_node_pr =="NDC check")  |>  
+      group_by(Supplier) |>
+      summarise(Consol_CBM_NDC =sum(CBM))|> ungroup()
+
+
+
+predict_result_node1<-left_join(predict_result_pr, predict_result_sum_ndc,  by = c("Supplier"))|> 
+      mutate(
+        allocation_result_node1 = case_when( 
+          allocation_result_node_pr == "NDC check" & CBM >= 67*0.95  ~ "NDC: FCL for single sku",
+           allocation_result_node_pr == "NDC check" & CBM<  67*0.95 &leftover_space> 0 &  leftover_space<=5~ "NDC: FCL for single sku by adjusting the volume quantity",
+
+            allocation_result_node_pr == "NDC check" & CBM<  67*0.95   & Consol_CBM_NDC >= 67*0.95 & leftover_space>5  ~ "NDC: FCL for consolidated sku",
+          allocation_result_node_pr == "NDC check" &  Consol_CBM_NDC < 67*0.95  ~ "Other strategy to wait for FCL consolidation",
+          TRUE~allocation_result_node_pr
+        ))
+
+
+predict_result_study<- predict_result_node1 |> 
+      left_join(storage_cost, by ="Region") |> 
+      left_join(dtrans_cost, by = c("State" = "Destination"))|>
+  rename(rdc_sf=Cost)|> mutate(CBM.cost =as.numeric(str_remove(CBM.cost, "\\$")),
+                               
+                               ndc_storage = as.numeric(str_remove(ndc_storage, "\\$")),
+                               rdc_storage=as.numeric(str_remove(rdc_storage, "\\$")))
+
+ndc_sf<-predict_result_study |> group_by(Supplier,`Item Code`) |>filter(Region =="MEL")|>select(rdc_sf,Supplier)|> distinct()|> rename(ndc_sf=rdc_sf)
+
+predict_result_final<-left_join(predict_result_study,ndc_sf, by =c("Supplier", "Item Code")) |>mutate( 
+        Reg_cost =  67 *( rdc_storage + rdc_sf) ,
+        NDC_cost = CBM * (ndc_sf+ rdc_storage + CBM.cost),
+           cost_difference =  if_else(Region == "MEL" |allocation_result_node1 %in% c("RDC: FCL for single sku", "RDC: FCL for consolidated sku","Other strategy to wait for FCL consolidation"), 
+                                   NA, (NDC_cost*1.05-Reg_cost)),
+         allocation_result_node_final = if_else( !is.na(cost_difference)& cost_difference >= 0,"RDC: revise for cost analysis", allocation_result_node1),
+        cost_difference =if_else( is.na(cost_difference),"Not appliable", paste0("$",round(cost_difference,digits =2))
+        ))
 ```
 
 
 
 
-```{r}
-example_tsb_model_filter<-
-```
 
-```{r}
-unique(example_mt$`Item Code`)
-```
+Here is the frequency report prediction result  and the detail table:
 
-```{r}
-unique(example_tsb_model_tbmt$`Item Code`)
+```{r summary}
+predict_result_final$allocation_result_node_final|> table() 
 ```
 
 
-```{r}
-|> filter(Model =="ETS"& Yearmonth == yearmonth("2024 May"))
+```{r dttable}
+predict_result_final |> 
+  select(`Item Code`, Region, Yearmonth, allocation_result_node_final,
+         cost_difference, CBM, Consol_CBM, Consol_CBM_NDC)  |>
+  rename(`Final decision` = allocation_result_node_final,
+         `RDC consol` =Consol_CBM,
+         `NDC consol` =Consol_CBM_NDC)|> 
+  mutate(Yearmonth =as.character(Yearmonth)  ) |>
+     
+  datatable( filter ="top",
+      callback=JS('
+    $("button.buttons-copy").css({
+        "background": "#81D8D0",
+         "border": "2px solid #000000",
+         "color":"white",
+         "fontweight":"bold",  
+        "border-radius": "10px"
+    });
+    $("button.buttons-csv").css({
+        "background": "#FF7900",
+         "border": "2px solid #000000",  
+        "border-radius": "10px", 
+         "color":"white",
+         "fontweight":"bold"
+    });
+    
+    return table;
+')
+      
+      ,
+      extensions = c('Buttons', 'Scroller','FixedColumns'),
+      options = list(
+        scrollY = 400,
+        scroller = TRUE,
+        dom = 'Bfrtip',
+        scrollX = TRUE,
+        fixedColumns = TRUE,
+        
+        buttons = list( list(extend = "copy", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="14" viewBox="0 0 448 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M384 336H192c-8.8 0-16-7.2-16-16V64c0-8.8 7.2-16 16-16l140.1 0L400 115.9V320c0 8.8-7.2 16-16 16zM192 384H384c35.3 0 64-28.7 64-64V115.9c0-12.7-5.1-24.9-14.1-33.9L366.1 14.1c-9-9-21.2-14.1-33.9-14.1H192c-35.3 0-64 28.7-64 64V320c0 35.3 28.7 64 64 64zM64 128c-35.3 0-64 28.7-64 64V448c0 35.3 28.7 64 64 64H256c35.3 0 64-28.7 64-64V416H272v32c0 8.8-7.2 16-16 16H64c-8.8 0-16-7.2-16-16V192c0-8.8 7.2-16 16-16H96V128H64z"/></svg>'), 
+                        list(extend = "csv", text = '<svg xmlns="http://www.w3.org/2000/svg" height="16" width="16" viewBox="0 0 512 512"><!--!Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2023 Fonticons, Inc.--><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg>')) ,
+        initComplete = JS(
+          "function(settings, json) {",
+          "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
+          "}"))) |> formatRound(6:8,2)
+                                                                                                                          
+                                                                                                                                
+                                                                                                                                                          
 
- left_join(example_tsb_model_filter,example_mt[ ,1:10],by =c("Region","Item Code")) |> distinct()
 
 ```
+
 
 

@@ -168,7 +168,7 @@ ui <- dashboardPage(
                      font-family: fantasy;"> AMES Project Report</h2>')),
               br(),
               br(),
-             fixedRow(width =12,
+              fixedRow(width =12,
                        column(width =3,
                               dropdownButton(
                                 inputId = "dropdown_data",
@@ -252,8 +252,8 @@ ui <- dashboardPage(
                                              selected= "Month",
                                              width ='30%'),
                               withSpinner(plotlyOutput("seasonalityresult"))
-                     
-                              ), ## END BRACKET OF tabPanel
+                              
+                     ), ## END BRACKET OF tabPanel
                      tabPanel(title ="Demand forecasting",
                               h3('Seasonal/Trend/Residual decomposition'),
                               
@@ -283,7 +283,7 @@ ui <- dashboardPage(
                               ),
                               
                               withSpinner( plotlyOutput("modelresult")) 
-                              ) ## END BRACKET OF tabPanel
+                     ) ## END BRACKET OF tabPanel
                      
               ) ## End bracket of tabBox 
       ), # End bracket of dfore tab
@@ -291,7 +291,7 @@ ui <- dashboardPage(
       tabItem(tabName ="price",
               p(HTML('<h2 style="text-align: center;color:#8b0000;
                      font-weight: bold;
-                     font-family: fantasy; ">AMES Project Report2</h2>')),
+                     font-family: fantasy; ">AMES Project Report</h2>')),
               br(),
               br(),
               p(HTML('<h3 style="margin-left:20px; font-weight: bold; ">Sea freight cost:</h3>')),
@@ -383,7 +383,7 @@ ui <- dashboardPage(
                 
                 mainPanel( 
                   box(width=12,
-                      title = "The summary table of storage cost",
+                      title = "The summary table of domestic transportation cost",
                       status = "warning", solidHeader = TRUE, collapsible = TRUE,
                       withSpinner(DTOutput("dtranscost"))
                   )
@@ -455,7 +455,7 @@ ui <- dashboardPage(
       tabItem(tabName ="about",
               p(HTML('<h2 style="text-align: center;color:#8b0000;
                      font-weight: bold;
-                     font-family: fantasy;">AMES Project Report3</h2>'))
+                     font-family: fantasy;">AMES Project Report</h2>'))
       )    # End basket of about tab
       
     ), ##End basket for tabItems
@@ -606,9 +606,9 @@ server <- function(input, output,session) {
       updateSelectizeInput(session, "product", choices = product_list, selected = product_list[1])
       
       data
-     
-   
-     
+      
+      
+      
     }
     
   })
@@ -654,7 +654,7 @@ server <- function(input, output,session) {
   output$seasonalityresult <- renderPlotly({
     
     
-
+    
     ## Define time transformation function based on selected input
     transform_time <- switch(input$seasontype,
                              "Month" = yearmonth,
@@ -687,7 +687,7 @@ server <- function(input, output,session) {
         hoverlabel = list(bgcolor = "white"),
         hoverinfo = "text+y",
         xaxis = list(spikemode = 'across')) 
- 
+    
   })
   
   
@@ -701,7 +701,7 @@ server <- function(input, output,session) {
                              "Year" = function(x) year(yearmonth(x))
     )
     
-
+    
     
     ## Convert to tsibble function
     prod_exp_tsb<- data_prod1() |>
@@ -732,7 +732,7 @@ server <- function(input, output,session) {
     
     if (input$model==  "Rolling average"){
       
-    
+      
       
       prod_exp<-data_prod1()  |>
         filter(Region ==input$region & Product %in% input$product)|>
@@ -817,49 +817,49 @@ server <- function(input, output,session) {
       
     } else {
       
-     
-    ## Define model transformation function based on selected input
-    transform_model<- switch(input$model,
-                             "ETS" = ETS,
-                             "ARIMA" = ARIMA)
-    
-    
-    
-    ## Convert to tsibble function
-    prod_exp_tsb<-   data_prod1() |>
-      filter(Region ==input$region & Product%in% input$product)|>
-      mutate(season = transform_time(Yearmonth))|>
-      group_by(season,Region, Product) |>
-      summarise(Volume=sum(Volume)) |>
-      as_tsibble(index =season, key =Product)
-    
-    ## Model prediction
-    forecast_result<- prod_exp_tsb |>
-      model( transform_model( Volume)) |> 
-      forecast(h = input$dforeperiod) |>  
-      as.tibble()  |> mutate(range =Volume,
-                             Volume=.mean,
-                             var =as.numeric(str_extract(range , 
-                                                         "(?<=,\\s)\\d+\\.?\\d*(?:[eE][-+]?\\d+)?")),
-                             sigma =sqrt(var),
-                             low80 =  Volume- 1.282 *sigma,
-                             high80 =  Volume+ 1.282 *sigma,
-                             low90 =  Volume- 1.645*sigma,
-                             high90 =  Volume+ 1.645 *sigma
-      )## Calculate the upper/lower CI
-    
-    
-    prod_exp_tsb_tail<- prod_exp_tsb|>tail( n =input$modeltp)
-    
-    ## Combine the data
-    prod_exp_bind <-rbind(as.tibble(prod_exp_tsb) |> select(Product,season, Volume),
-                          forecast_result |> select( Product,season, Volume)
-    )  |> filter( season >=  prod_exp_tsb_tail$season[1])
-    
-    
-   
-    
-
+      
+      ## Define model transformation function based on selected input
+      transform_model<- switch(input$model,
+                               "ETS" = ETS,
+                               "ARIMA" = ARIMA)
+      
+      
+      
+      ## Convert to tsibble function
+      prod_exp_tsb<-   data_prod1() |>
+        filter(Region ==input$region & Product%in% input$product)|>
+        mutate(season = transform_time(Yearmonth))|>
+        group_by(season,Region, Product) |>
+        summarise(Volume=sum(Volume)) |>
+        as_tsibble(index =season, key =Product)
+      
+      ## Model prediction
+      forecast_result<- prod_exp_tsb |>
+        model( transform_model( Volume)) |> 
+        forecast(h = input$dforeperiod) |>  
+        as.tibble()  |> mutate(range =Volume,
+                               Volume=.mean,
+                               var =as.numeric(str_extract(range , 
+                                                           "(?<=,\\s)\\d+\\.?\\d*(?:[eE][-+]?\\d+)?")),
+                               sigma =sqrt(var),
+                               low80 =  Volume- 1.282 *sigma,
+                               high80 =  Volume+ 1.282 *sigma,
+                               low90 =  Volume- 1.645*sigma,
+                               high90 =  Volume+ 1.645 *sigma
+        )## Calculate the upper/lower CI
+      
+      
+      prod_exp_tsb_tail<- prod_exp_tsb|>tail( n =input$modeltp)
+      
+      ## Combine the data
+      prod_exp_bind <-rbind(as.tibble(prod_exp_tsb) |> select(Product,season, Volume),
+                            forecast_result |> select( Product,season, Volume)
+      )  |> filter( season >=  prod_exp_tsb_tail$season[1])
+      
+      
+      
+      
+      
     }
     
     
@@ -880,7 +880,7 @@ server <- function(input, output,session) {
     
     ggplotly(predictplot) |>
       layout(legend = list(orientation = 'h')) 
-   
+    
   })
   
   
@@ -976,7 +976,7 @@ server <- function(input, output,session) {
       formatCurrency(c("Pallet cost","CBM cost"), digits = 2)
     
     return(dtrans_dt)
-   
+    
   })
   
   
@@ -1041,13 +1041,13 @@ server <- function(input, output,session) {
     
     
     ## Data wranggling
-    example_mt<- data_example()  |> mutate(Profit = Wholesale.price-COGs, ## Calculate the Cost
+    example_mt<- data_example()  |> mutate(
                                            Month =yearmonth(Month), ## Convert to year month
                                            Vm= if_else(Packaging.type=="Without packaging", 
                                                        Length.cm*Height.cm*Width.cm/6000,
                                                        Packaging.Length*Packaging.width*Packaging.height/6000), 
                                            Charge_weight= if_else(Vm>Actual.weight.kg, Vm,Actual.weight.kg ), 
-                                           cbm=  Forecast.demand*Charge_weight/1000000,# CBM calculation
+                                           cbm=  round(Forecast.demand*Charge_weight/1000000,digits=2),# CBM calculation
                                            leftover_space = (1-cbm/ as.numeric(input$container ))*100,
                                            pkg_air_vol= if_else(Packaging.type=="Without packaging",
                                                                 Product.volume.cm./(  Length.cm* Height.cm*Width.cm),Product.volume.cm./(Packaging.Length*Packaging.width*Packaging.height)),
@@ -1086,7 +1086,7 @@ server <- function(input, output,session) {
     
     example_sum_ndc<-example_join |> filter(allocation_result_node_pr =="NDC check") |>  
       group_by(Supplier.Factory.code) |>
-      summarise(consolidated_cbm_ndc =sum(cbm))|> ungroup()
+      summarise(consolidated_cbm_ndc =round(sum(cbm), digits = 2))|> ungroup()
     
     
     example_join<- left_join(example_join, example_sum_ndc,  by = c("Supplier.Factory.code")) |> 
@@ -1110,7 +1110,7 @@ server <- function(input, output,session) {
     
     AMES_dtrans_exp<- data_dtrans() 
     
-    AMES_dtrans_exp<- AMES_dtrans_exp |> 
+    AMES_dtrans_exp<- AMES_dtrans_exp |>
       filter( Origin =="VIC") 
     
     
@@ -1142,12 +1142,12 @@ server <- function(input, output,session) {
     ## Result aggregation
     example_final_result <- example_cost_study |>
       mutate( 
-        Reg_cost =   as.numeric(input$container ) *( rdc_storage + rdc_sf) ,
+        Reg_cost =   as.numeric(input$container ) *rdc_sf  + cbm *rdc_storage ,
         NDC_cost = cbm * (ndc_sf+ rdc_storage + `CBM cost`),
         cost_difference =  if_else(Region == "MEL" |allocation_result_node1 %in% c("RDC: FCL for single sku", "RDC: FCL for consolidated sku","Other strategy to wait for FCL consolidation"), 
                                    NA, NDC_cost*(1+ as.numeric(input$cost)/100)-Reg_cost),
         allocation_result_node_final = if_else( !is.na(cost_difference)& cost_difference >= 0,"RDC: revise for cost analysis", allocation_result_node1),
-        cost_difference =if_else( is.na(cost_difference),"Not appliable", paste0(round(cost_difference),"%"))
+        cost_difference =if_else( is.na(cost_difference),"Not appliable", paste0("$", round(cost_difference,digits = 2)))
         
       )
     
@@ -1157,12 +1157,14 @@ server <- function(input, output,session) {
     tb_model<-  example_final_result |> rename(`Product code`=Product.code,
                                                `Short description` =Short.description,
                                                Brand =Brand_name,
+                                               CBM = cbm,
                                                `Consol CBM` =consolidated_cbm,
+                                               `NDC Consol CBM` =consolidated_cbm_ndc,
                                                `Cost diff` =cost_difference ,
-                                               `Allocation reult`= allocation_result_node_final ,
+                                               `Allocation result`= allocation_result_node_final ,
                                                `Warning message`=Warning_message)|>
       mutate(Month =as.character(Month)) |>
-      select(`Product code`,`Short description`, Month,Region,`Consol CBM`,`Cost diff` ,`Allocation reult`,`Warning message`) |> 
+      select(`Product code`,`Short description`,  Month,Region, `Allocation result`,`Warning message`,CBM,`Consol CBM`,`NDC Consol CBM`, `Cost diff` ) |> 
       datatable(
         callback=JS('
     $("button.buttons-copy").css({
@@ -1198,7 +1200,7 @@ server <- function(input, output,session) {
             "function(settings, json) {",
             "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
             "}")))|> formatStyle(
-              c("Allocation reult","Warning message"), "white-space" = "pre-line"
+              c("Allocation result","Warning message"), "white-space" = "pre-line"
             ) |> formatStyle("Warning message", 
                              color = "red")  |> 
       formatString("Consol CBM", suffix= HTML(' m<sup>3</sup>')) 
