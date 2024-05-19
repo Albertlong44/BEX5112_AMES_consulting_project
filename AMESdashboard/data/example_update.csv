@@ -1,0 +1,5 @@
+﻿Product code,Item_description,Manufacturing type,Short description,Brand_name,Supplier/Factory code,POL,Target service level,COGs,Wholesale price,Region,Month,Forecast demand,Actual weight-kg,Length-cm,Height-cm,Width-cm,Packaging type,Product volume-cm³,Packaging Length,Packaging width,Packaging height,Stackability,Nestability,Sensitivity,Occupied quantity,Total limited volume--m³,Total limit weight-kg
+A00141,Nylex Water Bottle,Outsourcing,Water bottle,Nylex,H0046,CNGZG,95%,20,50,SYD,2024-05,122000,12,120,120,120,Carton,1700000,150,150,150,Y,N,Normal,600,"62,500",800
+A00568,Cyclone Shovels,Outsourcing,Shovels,Cyclone,H0046,CNGZG,90%,22.5,25,SYD,2024-05,500,50,1110,100,100,Without packaging,13500000,1500,120,120,N,N,Normal,200,"125,000",1000
+A00677,EZBorder  Spikes& Stones,Outsourcing,50 cm Spikes& Stones,EZBorder,H0047,VNVPH,95%,22.5,25,SYD,2024-05,217000,0.5,150,50,50,Carton,125000,150,50,50,Y,NA,Normal,600,62500,800
+A00678,EZBorder  Spikes& Stones,Outsourcing,25 cm Spikes& Stones,EZBorder,H0047,VNVPH,0.95,22.5,25,MEL,2024-05,957000,0.5,150,50,50,Carton,125000,150,50,50,Y,NA,Normal,600,62500,800

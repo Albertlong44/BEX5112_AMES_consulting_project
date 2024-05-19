@@ -5,9 +5,9 @@ account: loongyuho
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 11803536
-bundleId: 8620705
+bundleId: 8630151
 url: https://loongyuho.shinyapps.io/AMESdashboard02/
-when: 1715809963.19872
-lastSyncTime: 1715809963.19874
+when: 1715986265.23148
+lastSyncTime: 1715986265.23149
 asMultiple: FALSE
 asStatic: FALSE

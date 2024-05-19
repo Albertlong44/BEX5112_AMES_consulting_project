@@ -88,7 +88,18 @@ model_list<-c("ARIMA","ETS","Rolling average")
 
 container_list<-c("40FT High-cube"=76,"20FT Standard"=33,"40FT Standard"=67,"20FT High-cube"=37)
 
-
+dt_color_list<-c("RDC: FCL for single sku" ="#AFE1AF",
+                 "RDC: FCL for single sku by adjusting the volume quantity" ="#AFE1AF",
+                 "RDC: FCL for consolidated sku" ="#AFE1AF",
+                 "No or wrong predictive volumes detected" ="#F7D7DC",
+                 "Other strategy to wait for FCL consolidation"="#F7D7DC",
+                 "NDC: FCL for single sku"="#e7e0e8",
+                 "NDC: FCL for single sku by adjusting the volume quantity" ="#e7e0e8",
+                 
+                 "NDC: FCL for consolidated sku"="#e7e0e8"
+                 
+)
+                 
 ## Function
 
 setSliderColor<-function(color, sliderId) {
@@ -209,7 +220,7 @@ ui <- dashboardPage(
                        column(width =3,
                               dropdownButton(
                                 inputId = "dropdown_region",
-                                label ="region",
+                                label ="Region",
                                 circle=FALSE,
                                 icon= icon("earth-asia"),
                                 status ="warning",
@@ -285,7 +296,10 @@ ui <- dashboardPage(
                               withSpinner( plotlyOutput("modelresult")) 
                      ) ## END BRACKET OF tabPanel
                      
-              ) ## End bracket of tabBox 
+              ), ## End bracket of tabBox 
+              br(),
+              br(),
+              htmlOutput("license_dfore")
       ), # End bracket of dfore tab
       
       tabItem(tabName ="price",
@@ -389,7 +403,10 @@ ui <- dashboardPage(
                   )
                   
                 ) ##End bracket of mainPanel
-              ) ## End bracket of sidebarPanel
+              ), ## End bracket of sidebarPanel
+             br(),
+              br(),
+              htmlOutput("license_price")
       ),  # End basket of price tab
       
       tabItem(tabName ="decmodel",
@@ -448,14 +465,20 @@ ui <- dashboardPage(
                   )
                 )
                 
-              ) #End basket for sidebarLayout
-              
+              ), #End basket for sidebarLayout
+              br(),
+              br(),
+              htmlOutput("license_dcmodel")   
       ),  # End basket of dcmodel tab
       
       tabItem(tabName ="about",
               p(HTML('<h2 style="text-align: center;color:#8b0000;
                      font-weight: bold;
-                     font-family: fantasy;">AMES Project Report</h2>'))
+                     font-family: fantasy;">AMES Project Report</h2>')), 
+              br(),
+              br(),
+              htmlOutput("license_about")   
+              
       )    # End basket of about tab
       
     ), ##End basket for tabItems
@@ -879,7 +902,15 @@ server <- function(input, output,session) {
       theme(legend.position = "bottom")
     
     ggplotly(predictplot) |>
-      layout(legend = list(orientation = 'h')) 
+      layout(legend = list(orientation = 'h')) |>
+      layout(
+        hovermode = "closest",
+        hoverlabel = list(bgcolor = "white"),
+        hoverinfo = "text+y",
+        xaxis = list(spikemode = 'across')) %>% 
+      event_register("plotly_hover") ## set up the connection
+    
+    
     
   })
   
@@ -1070,15 +1101,15 @@ server <- function(input, output,session) {
     example_join<-left_join(example_mt, example_sum,
                             by = c("Supplier.Factory.code", "Region")) |>
       mutate(allocation_result_node_pr = case_when( 
-        cbm <= 0 ~" No or wrong predictive orders detected",
+        cbm <= 0 ~"No or wrong predictive volumes detected",
         Region == "MEL" & cbm>0  ~ "NDC check",
         Region != "MEL"& cbm >=  as.numeric(input$container)  ~ "RDC: FCL for single sku",
-        Region != "MEL"& cbm<  as.numeric(input$container)   &leftover_space>0 & leftover_space<= as.numeric(input$space)  ~ "RDC: FCL for single sku",
+        Region != "MEL"& cbm<  as.numeric(input$container)   &leftover_space>0 & leftover_space<= as.numeric(input$space)  ~ "RDC: FCL for single sku by adjusting the volume quantity",
         Region != "MEL"& cbm <  as.numeric(input$container)  & consolidated_cbm >=   as.numeric(input$container)  &leftover_space> as.numeric(input$space) ~"RDC: FCL for consolidated sku",
         Region != "MEL"& consolidated_cbm <  as.numeric(input$container)  ~"NDC check",
         TRUE ~ NA_character_
-      ),  Warning_message= case_when( cbm <= 0 ~"No or wrong predictive orders detected, please check your data.",
-                                      consolidated_pkg_utilization<=(1- as.numeric(input$airvol)) ~" Warning: This batch of shipment carries high air volumes.",
+      ),  Warning_message= case_when( cbm <= 0 ~"No or wrong predictive volume detected, please check your data.",
+                                      allocation_result_node_pr!="NDC check"& consolidated_pkg_utilization<=as.numeric(input$airvol) ~" Warning: This batch of shipment carries high air volumes.",
                                       leftover_space>0 & leftover_space<= as.numeric(input$space)  ~"Warning: The current CBM delivery is just below the FCL threshold. Consider adjusting the volume quantity to meet the FCL requirement.")
       
       ) 
@@ -1086,20 +1117,23 @@ server <- function(input, output,session) {
     
     example_sum_ndc<-example_join |> filter(allocation_result_node_pr =="NDC check") |>  
       group_by(Supplier.Factory.code) |>
-      summarise(consolidated_cbm_ndc =round(sum(cbm), digits = 2))|> ungroup()
+      summarise(consolidated_cbm_ndc =round(sum(cbm), digits = 2),
+                consolidated_pkg_utilization_ndc =weighted.mean(pkg_utilization,cbm) 
+                )|> ungroup()
     
     
     example_join<- left_join(example_join, example_sum_ndc,  by = c("Supplier.Factory.code")) |> 
       mutate(
         allocation_result_node1 = case_when( 
           allocation_result_node_pr == "NDC check" & cbm >=  as.numeric(input$container)  ~ "NDC: FCL for single sku",
-          allocation_result_node_pr == "NDC check" & cbm <  as.numeric(input$container)   & leftover_space > 0 & leftover_space <= as.numeric(input$space)  ~ "NDC: FCL for single sku",
+          allocation_result_node_pr == "NDC check" & cbm <  as.numeric(input$container)   & leftover_space > 0 & leftover_space <= as.numeric(input$space)  ~ "NDC: FCL for single sku by adjusting the volume quantity",
           allocation_result_node_pr == "NDC check" & cbm <  as.numeric(input$container)  & leftover_space > input$space & consolidated_cbm_ndc >= as.numeric(input$container)   ~ "NDC: FCL for consolidated sku",
           allocation_result_node_pr == "NDC check" & consolidated_cbm_ndc <  input$container  ~ "Other strategy to wait for FCL consolidation",
           TRUE~allocation_result_node_pr
         ),
-        Warning_message= if_else(allocation_result_node1 =="Other strategy to wait for FCL consolidation",
-                                 "Warning: The maximium of  consolidation cannot fulfill FCL. Other strategy  is required", Warning_message)
+        Warning_message= case_when(allocation_result_node1 =="Other strategy to wait for FCL consolidation"~"Warning: The maximium of  consolidation cannot fulfill FCL. Other strategy  is required", 
+                                   allocation_result_node_pr=="NDC check"&consolidated_pkg_utilization_ndc<= 80~ " Warning: This batch of shipment carries highair volumes.",                       
+                                   TRUE ~  Warning_message)
         
       )
     
@@ -1204,7 +1238,11 @@ server <- function(input, output,session) {
               c("Allocation result","Warning message"), "white-space" = "pre-line"
             ) |> formatStyle("Warning message", 
                              color = "red")  |> 
-      formatString(c("Consol CBM","NDC Consol CBM", "CBM"), suffix= HTML(' m<sup>3</sup>')) 
+      formatString(c("Consol CBM","NDC Consol CBM", "CBM"), suffix= HTML(' m<sup>3</sup>')) |> 
+      formatStyle("Allocation result", 
+                  BackgroundColor =  styleEqual(names(dt_color_list),dt_color_list),
+                  fontWeight ="bold"  ) 
+    
   })
   
   
@@ -1262,6 +1300,25 @@ server <- function(input, output,session) {
       write.csv(prod_exp, file)
     }
   ) 
+  
+  
+  output$license_dfore<-renderUI({
+    HTML( '<p style="color =grey; margin-left:10px;"> Version 1.0 | This webpage is licensed by <a href="https://creativecommons.org/licenses/by/3.0/"><i class="fa-brands fa-creative-commons"></i> CC 3.0</a> | Monash AMES project team')
+  })
+  
+  
+  output$license_price<-renderUI({
+    HTML( '<p style="color =grey; margin-left:10px;"> Version 1.0 | This webpage is licensed by <a href="https://creativecommons.org/licenses/by/3.0/"><i class="fa-brands fa-creative-commons"></i> CC 3.0</a> | Monash AMES project team')
+  })
+  
+  output$license_dcmodel<-renderUI({
+    HTML( '<p style="color =grey; margin-left:10px;"> Version 1.0 | This webpage is licensed by <a href="https://creativecommons.org/licenses/by/3.0/"><i class="fa-brands fa-creative-commons"></i> CC 3.0</a> | Monash AMES project team')
+  })
+  
+  output$license_about<-renderUI({
+    HTML( '<p style="color =grey; margin-left:10px;"> Version 1.0 | This webpage is licensed by <a href="https://creativecommons.org/licenses/by/3.0/"><i class="fa-brands fa-creative-commons"></i> CC 3.0</a> | Monash AMES project team')
+  })
+  
   
   
 }
