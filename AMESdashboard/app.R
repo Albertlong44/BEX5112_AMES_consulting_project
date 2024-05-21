@@ -14,6 +14,7 @@ library(readxl)
 library(shinycssloaders)
 library(colorspace)
 library(tools)
+library(knitr)
 
 # Part B read data & wrangling
 prod_exp<- read.csv("data/production.csv")
@@ -477,7 +478,29 @@ ui <- dashboardPage(
                      font-family: fantasy;">AMES Project Report</h2>')), 
               br(),
               br(),
-              htmlOutput("license_about")   
+              box(width = 12,status = "success", title = "Introduction", collapsible = TRUE, solidHeader = FALSE,
+                  p(HTML('<b style="text-align: center;color:#8b0000;
+                     font-weight: bold;
+                     font-family: fantasy;">Purpose</b>')),
+                  p('This dashboard aims at the visualization and model build-up for the decision of  sku allocation(whether RDC or NDC)  :'),
+                  p(HTML('🎯<b>Demand forecasting</b>: Visualizes demand trends and patterns and incorporate with advanced mathmatic prediction model  ETS/ARIMA.')),
+                  p(HTML('🎯<b>Ratecard management</b>: Manages logistical costs and other stable key variables, separate tracking.')),
+                  p(HTML('🎯<b>Decision model</b>:  Displays RDC/NDC results in nice format table with an interactive interface for uploading data and adjusting model parameters.'),
+                   br(),
+                   br(),
+                   p(HTML('<b style="text-align: center;color:#8b0000;
+                     font-weight: bold;
+                     font-family: fantasy;">Theoretical Model</b>')),
+                   p('Below is the workflow of our theoretical model:'),
+                   tags$img(src = "data/model.png", height = "400px", width = "600px"),
+                   
+                   p(HTML('<b style="text-align: center;color:#8b0000;
+                     font-weight: bold;
+                     font-family: fantasy;">Credits</b>'))
+                   
+                   )
+                  ),
+             htmlOutput("license_about")
               
       )    # End basket of about tab
       
@@ -1246,6 +1269,7 @@ server <- function(input, output,session) {
   })
   
   
+
   
   output$downloadData <- downloadHandler(
     filename = function() {
