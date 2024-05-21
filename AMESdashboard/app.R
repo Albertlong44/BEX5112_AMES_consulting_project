@@ -492,13 +492,26 @@ ui <- dashboardPage(
                      font-weight: bold;
                      font-family: fantasy;">Theoretical Model</b>')),
                    p('Below is the workflow of our theoretical model:'),
-                   tags$img(src = "data/model.png", height = "400px", width = "600px"),
-                   
+                   tags$img(src = "https://raw.githubusercontent.com/Albertlong44/BEX5112_AMES_consulting_project/main/Fig/model.png", 
+                            height = "400px", width = "1000px"),
                    p(HTML('<b style="text-align: center;color:#8b0000;
                      font-weight: bold;
-                     font-family: fantasy;">Credits</b>'))
-                   
-                   )
+                     font-family: fantasy;">Authors</b>')),
+                   p(HTML('<b>Yuhao Long</b>, <a href="loongyuho@gmail.com">loongyuho@gmail.com </a>, Master of Business Analytics, Monash University')),
+                   p(HTML('<b>Varun Singh</b>, <a href="vsin0010@student.monash.edu">vsin0010@student.monash.edu</a>,Master of Management, Monash University')),
+                   p(HTML('<b>Yuying Liu</b>, <a href="yliu0523@student.monash.edu">yliu0523@student.monash.edu</a>,Master of Business, Monash University')),
+                   p(HTML('<b>Saud Jaber A Alfaifi</b>, <a href="salf0005@student.monash.edu">salf0005@student.monash.edu</a>,Master of Business, Monash University')),
+                   p(HTML('<b style="text-align: center;color:#8b0000;
+                     font-weight: bold;
+                     font-family: fantasy;">Supervisors</b>')),
+                   p(HTML('<b>Richard Millson</b>,<a href="Richard.Millson@monash.edu">Richard.Millson@monash.edu</a>, Faculty of Business and Economics, Monash University'))
+                    ),## Box 
+                  p(HTML('<b style="text-align: center;color:#8b0000;
+                     font-weight: bold;
+                     font-family: fantasy;">Set-up</b>')),
+                  p(icon("github"), HTML('<strong>Github:</strong>'),HTML('<a href="https://github.com/Albertlong44/BEX5112_AMES_consulting_project">github link</a>.')),
+                  p(HTML('<b>Session documentation of build-up</b>')),
+                  verbatimTextOutput("session_output")
                   ),
              htmlOutput("license_about")
               
@@ -1343,7 +1356,9 @@ server <- function(input, output,session) {
     HTML( '<p style="color =grey; margin-left:10px;"> Version 1.0 | This webpage is licensed by <a href="https://creativecommons.org/licenses/by/3.0/"><i class="fa-brands fa-creative-commons"></i> CC 3.0</a> | Monash AMES project team')
   })
   
-  
+  output$session_output <- renderPrint({
+    sessioninfo::session_info()
+  })
   
 }
 
