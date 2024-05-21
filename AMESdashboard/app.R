@@ -505,7 +505,12 @@ ui <- dashboardPage(
                      font-weight: bold;
                      font-family: fantasy;">Supervisors</b>')),
                    p(HTML('<b>Richard Millson</b>,<a href="Richard.Millson@monash.edu">Richard.Millson@monash.edu</a>, Faculty of Business and Economics, Monash University'))
-                    ),## Box 
+                    ), 
+                  
+                  tags$img(src = "https://raw.githubusercontent.com/Albertlong44/BEX5112_AMES_consulting_project/main/Fig/author.png", 
+                           height = "200px", width = "250px"),
+                  br(),
+                  br(),
                   p(HTML('<b style="text-align: center;color:#8b0000;
                      font-weight: bold;
                      font-family: fantasy;">Set-up</b>')),
