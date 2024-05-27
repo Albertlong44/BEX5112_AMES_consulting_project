@@ -497,6 +497,7 @@ ui <- dashboardPage(
                    p(HTML('<b style="text-align: center;color:#8b0000;
                      font-weight: bold;
                      font-family: fantasy;">Authors</b>')),
+                   p('Members of BEX5112 AMES project team 2024 Semester 1:'),
                    p(HTML('<b>Yuhao Long</b>, <a href="loongyuho@gmail.com">loongyuho@gmail.com </a>, Master of Business Analytics, Monash University')),
                    p(HTML('<b>Varun Singh</b>, <a href="vsin0010@student.monash.edu">vsin0010@student.monash.edu</a>,Master of Management, Monash University')),
                    p(HTML('<b>Yuying Liu</b>, <a href="yliu0523@student.monash.edu">yliu0523@student.monash.edu</a>,Master of Business, Monash University')),
@@ -1169,11 +1170,11 @@ server <- function(input, output,session) {
           allocation_result_node_pr == "NDC check" & cbm >=  as.numeric(input$container)  ~ "NDC: FCL for single sku",
           allocation_result_node_pr == "NDC check" & cbm <  as.numeric(input$container)   & leftover_space > 0 & leftover_space <= as.numeric(input$space)  ~ "NDC: FCL for single sku by adjusting the volume quantity",
           allocation_result_node_pr == "NDC check" & cbm <  as.numeric(input$container)  & leftover_space > input$space & consolidated_cbm_ndc >= as.numeric(input$container)   ~ "NDC: FCL for consolidated sku",
-          allocation_result_node_pr == "NDC check" & consolidated_cbm_ndc <  input$container  ~ "Other strategy to wait for FCL consolidation",
+          allocation_result_node_pr == "NDC check" & consolidated_cbm_ndc <  as.numeric(input$container)  ~ "Other strategy to wait for FCL consolidation",
           TRUE~allocation_result_node_pr
         ),
         Warning_message= case_when(allocation_result_node1 =="Other strategy to wait for FCL consolidation"~"Warning: The maximium of  consolidation cannot fulfill FCL. Other strategy  is required", 
-                                   allocation_result_node_pr=="NDC check"&consolidated_pkg_utilization_ndc<= 80~ " Warning: This batch of shipment carries highair volumes.",                       
+                                   allocation_result_node_pr=="NDC check"&consolidated_pkg_utilization_ndc<= as.numeric(input$airvol) ~ " Warning: This batch of shipment carries high air volumes.",                       
                                    TRUE ~  Warning_message)
         
       )

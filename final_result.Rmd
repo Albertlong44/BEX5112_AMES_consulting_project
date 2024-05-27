@@ -745,7 +745,7 @@ predict_result_study<- predict_result_node1 |>
 ndc_sf<-predict_result_study |> group_by(Supplier,`Item Code`) |>filter(Region =="MEL")|>select(rdc_sf,Supplier)|> distinct()|> rename(ndc_sf=rdc_sf)
 
 predict_result_final<-left_join(predict_result_study,ndc_sf, by =c("Supplier", "Item Code")) |>mutate( 
-        Reg_cost =  67 *( rdc_storage + rdc_sf) ,
+        Reg_cost =  67 *( rdc_storage) +  CBM *rdc_sf ,
         NDC_cost = CBM * (ndc_sf+ rdc_storage + CBM.cost),
            cost_difference =  if_else(Region == "MEL" |allocation_result_node1 %in% c("RDC: FCL for single sku", "RDC: FCL for consolidated sku","Other strategy to wait for FCL consolidation"), 
                                    NA, (NDC_cost*1.05-Reg_cost)),
@@ -763,7 +763,23 @@ Here is the frequency report prediction result  and the detail table:
 ```{r summary}
 predict_result_final$allocation_result_node_final|> table() 
 ```
+```{r}
+predict_result_final |>filter(Region=="MEL") |> count(allocation_result_node_final)
+```
+```{r}
+predict_result_final |> filter(allocation_result_node_final== "RDC: revise for cost analysis" & Region!="MEL")  |> select(CBM,CBM.cost, rdc_storage,ndc_storage, ndc_sf, rdc_sf,CBM.cost, Reg_cost, NDC_cost)
+```
 
+
+```{r}
+predict_result_final  |> filter(allocation_result_node_final== "RDC: revise for cost analysis" & Region!="MEL") 
+```
+|>arrange(Region)
+
+### Problem use 6 month rolling 11 result turn to rdc
+```{r}
+unique(predict_result_final$allocation_result_node_final)
+```
 
 ```{r dttable}
 predict_result_final |> 
