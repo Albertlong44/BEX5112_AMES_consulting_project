@@ -35,6 +35,7 @@ library(janitor)
 library(plotly)
 library(DT)
 library(knitr)
+library(htmltools)
 library(colorspace)
 library(kableExtra)
 ```
@@ -540,7 +541,7 @@ When we concat with the historical data, it proves our assumptions:
 2. However, for confusion product in other regions, it gives a gradual ascend slope  and fails to acquire the the peak and trough. So in this particular sample, except for region in Adelaide, we are keen to  apply ETS method to confusion products.
 
 
-```{r rollavgcombo, fig.cap ="The historical trend + 12 month rolling average prediction"}
+```{r rollavgcombo, fig.height=8, fig.cap ="The historical trend + 12 month rolling average prediction"}
 example_tsb_org_roll<-as.tibble(example_tsb )|>  
                           filter( `Item Code` %in%c( middle,low)) |>
                           select(Yearmonth,Volume,Category, Region, `Item Code`)
@@ -618,7 +619,7 @@ To cascader the result to the Decision model, here is the tailor update for this
 ## 🧭 Backend logic 
 
 
- <font color= #8b0000> Node 1: Full container analysis </b></font>
+ <font color= #8b0000> Node 1: Full container analysis </font>
 
 - (½)RDC rule:
 
@@ -647,6 +648,16 @@ b). single cbm <= container threshold & remaining space is within [0,5%]:"NDC: F
 c). single cbm <= container threshold  but can do consol cbm: "NDC: FCL for consolidated sku"
 
 d). All conditions are unmatched : "Other strategy to wait for FCL consolidation"-- Rare case in actual practice
+
+ <font color= #8b0000> Node 2: Cost analysis </font>
+ 
+a). Prerequsite Condition: only consider for the sku cannot fulfill RDC but can consolidated to NDC
+
+b). Regional cost:  container cbm* Sea freight + cbm*(inventory/storage + miscellaneous…)
+
+c). NDC cost:  Consol cbm to RDC*(Sea freight + domestic transportation + inventory/storage + miscellaneous…)
+
+d). NDC cost*(1 + cost  threshold)  -  Regional cost>= 0, revise NDC to RDC
 
 
 
@@ -746,9 +757,9 @@ ndc_sf<-predict_result_study |> group_by(Supplier,`Item Code`) |>filter(Region =
 
 predict_result_final<-left_join(predict_result_study,ndc_sf, by =c("Supplier", "Item Code")) |>mutate( 
         Reg_cost =  67 *( rdc_storage) +  CBM *rdc_sf ,
-        NDC_cost = CBM * (ndc_sf+ rdc_storage + CBM.cost),
+        NDC_cost = Consol_CBM* (ndc_sf+ rdc_storage + CBM.cost),
            cost_difference =  if_else(Region == "MEL" |allocation_result_node1 %in% c("RDC: FCL for single sku", "RDC: FCL for consolidated sku","Other strategy to wait for FCL consolidation"), 
-                                   NA, (NDC_cost*1.05-Reg_cost)),
+                                   NA, (NDC_cost-Reg_cost*0.95)),
          allocation_result_node_final = if_else( !is.na(cost_difference)& cost_difference >= 0,"RDC: revise for cost analysis", allocation_result_node1),
         cost_difference =if_else( is.na(cost_difference),"Not appliable", paste0("$",round(cost_difference,digits =2))
         ))
@@ -763,23 +774,14 @@ Here is the frequency report prediction result  and the detail table:
 ```{r summary}
 predict_result_final$allocation_result_node_final|> table() 
 ```
-```{r}
-predict_result_final |>filter(Region=="MEL") |> count(allocation_result_node_final)
-```
-```{r}
-predict_result_final |> filter(allocation_result_node_final== "RDC: revise for cost analysis" & Region!="MEL")  |> select(CBM,CBM.cost, rdc_storage,ndc_storage, ndc_sf, rdc_sf,CBM.cost, Reg_cost, NDC_cost)
-```
 
 
-```{r}
-predict_result_final  |> filter(allocation_result_node_final== "RDC: revise for cost analysis" & Region!="MEL") 
-```
-|>arrange(Region)
+
+
+
 
 ### Problem use 6 month rolling 11 result turn to rdc
-```{r}
-unique(predict_result_final$allocation_result_node_final)
-```
+
 
 ```{r dttable}
 predict_result_final |> 
@@ -788,7 +790,9 @@ predict_result_final |>
   rename(`Final decision` = allocation_result_node_final,
          `RDC consol` =Consol_CBM,
          `NDC consol` =Consol_CBM_NDC)|> 
-  mutate(Yearmonth =as.character(Yearmonth)  ) |>
+  mutate(Yearmonth =as.character(Yearmonth),
+         Region =factor(Region),
+        `Final decision` =factor(`Final decision`) ) |>
      
   datatable( filter ="top",
       callback=JS('
@@ -831,6 +835,8 @@ predict_result_final |>
 
 
 ```
+## 📔 Conclusion
 
-
-
+```{r}
+HTML( '<p style="color =grey; margin-left:10px;"> Version 1.0 | This webpage is licensed by <a href="https://creativecommons.org/licenses/by/3.0/"><i class="fa-brands fa-creative-commons"></i> CC 3.0</a> | Monash AMES project team')
+```
