@@ -350,7 +350,7 @@ Below is the plot \@ref(fig:ets) integrates historical records and predictive va
 
 
 
-```{r modelcb, fig.cap="The historical trend + ETS model prediction in hot selling product"}
+```{r modelcb, fig.height =8, fig.cap="The historical trend + ETS model prediction in hot selling product"}
 
 
 example_tsb_org<-as.tibble(example_tsb )|>  
@@ -394,7 +394,9 @@ ggplotly(model_actual)|>
 The table reports the model result for all relevant data by ETS/ARIMA model forecasting, including their 90% and 95% safety stock,sigma and safety stock adjustment(assuming is shipment leadtime is 45 days).
 ```{r table1, fig.width =8}
 example_tsb_model_tbmt  |> 
-  mutate( Yearmonth =as.character(Yearmonth)) |> 
+  mutate( Yearmonth =as.character(Yearmonth),
+          Region = factor(Region),
+          Model =factor(Model)) |> 
   datatable( filter ="top",
       callback=JS('
     $("button.buttons-copy").css({
@@ -559,7 +561,9 @@ ggplotly(model_roll)|>
 The table reports the model result for all relevant data by ETS/ARIMA model forecasting, including their 90% and 95% safety stock,sigma and safety stock adjustment(assuming is shipment leadtime is 45 days).
 
 ```{r table2 , fig.width =8}
-example_mt_rbind |> mutate( Yearmonth =as.character(Yearmonth)) |>
+example_mt_rbind |> mutate( Yearmonth =as.character(Yearmonth),
+                            Region =factor(Region),
+                            `Item Code`  =factor(  `Item Code`)) |>
   select(-`Item & Region`) |>
   datatable( filter ="top",
       callback=JS('
@@ -614,6 +618,8 @@ To cascader the result to the Decision model, here is the tailor update for this
 
 - For sku not  covered in sample list, temporary use ETS prediction
 
+- Using the average of demand forecasting for upcoming 6 months to prevent the volatility in Peak and trough season
+
 
 
 ## 🧭 Backend logic 
@@ -664,26 +670,24 @@ d). NDC cost*(1 + cost  threshold)  -  Regional cost>= 0, revise NDC to RDC
 ## ⌛ Sample testing
 
 
-```{r modelbind}
-high_predict<-example_tsb_model_tbmt |> filter(`Item Code` %in% high & Yearmonth == yearmonth("2024 May")& Model =="ETS")|> select(Region, Yearmonth,`Item Code`,`Safety stock`)
+```{r}
+high_predict<-example_tsb_model_tbmt |> filter(`Item Code` %in% high & Model =="ETS")|> group_by(Region,`Item Code`)|> summarise(`Safety stock`=mean(`Safety stock`))
 
-middle_ETS_predict<- example_tsb_model_tbmt |> filter(`Item Code` %in% middle & Region != "ADE" & Yearmonth == yearmonth("2024 May")& Model =="ETS")|> select(Region, Yearmonth,`Item Code`,`Safety stock`)
+middle_ETS_predict<- example_tsb_model_tbmt |> filter(`Item Code` %in% middle & Region != "ADE"& Model =="ETS")|> group_by(Region,`Item Code`)|> summarise(`Safety stock`=mean(`Safety stock`))
 
+low_predict<- example_mt_rbind|> filter(`Item Code` %in% low )|> group_by(Region,`Item Code`)|> summarise(`Safety stock`=mean(`Safety stock`))
 
-low_predict<- example_mt_rbind|> filter(`Item Code` %in% low & Yearmonth == yearmonth("2024 May"))|> select(Region, Yearmonth,`Item Code`,`Safety stock`)
+middle_roll_predict<- example_mt_rbind |> filter(`Item Code` %in% middle & Region == "ADE")|> group_by(Region,`Item Code`)|> summarise(`Safety stock`=mean(`Safety stock`))
 
-middle_roll_predict<- example_mt_rbind |> filter(`Item Code` %in% middle & Region == "ADE" & Yearmonth == yearmonth("2024 May"))|> select(Region, Yearmonth,`Item Code`,`Safety stock`)
-
-
-Other_predict<-   example_tsb_model_tbmt |> filter(!(`Item Code` %in% sample_list) & Yearmonth == yearmonth("2024 May")& Model =="ETS")|> select(Region, Yearmonth,`Item Code`,`Safety stock`)
+Other_predict<-   example_tsb_model_tbmt |> filter(!(`Item Code` %in% sample_list) & Model =="ETS")|> group_by(Region,`Item Code`)|> summarise(`Safety stock`=mean(`Safety stock`))
 
 predict_bind<- rbind(high_predict,middle_ETS_predict,middle_roll_predict,low_predict,Other_predict)
 
-
-
-
-predict_result<-left_join(predict_bind,example_mt[1:10], by =c("Region","Item Code")) |> distinct()
+predict_result<-left_join(predict_bind,example_mt[1:10], by =c("Region","Item Code"))|> distinct()
 ```
+
+
+
 
 
 
@@ -771,26 +775,27 @@ predict_result_final<-left_join(predict_result_study,ndc_sf, by =c("Supplier", "
 
 Here is the frequency report prediction result  and the detail table:
 
+
+
 ```{r summary}
-predict_result_final$allocation_result_node_final|> table() 
+result_tbl<-predict_result_final  |> group_by(Region, allocation_result_node_final) |> count()|> pivot_wider(names_from = Region, values_from=n)
+
+result_tbl$Summary<-c(24,26,15,41,4)
+
+result_tbl$`percent(%)`<-c("21.81%","23.64%","13.64%","37.27%","3.73%")
+
+result_tbl|> datatable()
 ```
-
-
-
-
-
-
-### Problem use 6 month rolling 11 result turn to rdc
 
 
 ```{r dttable}
 predict_result_final |> 
-  select(`Item Code`, Region, Yearmonth, allocation_result_node_final,
+  select(`Item Code`, Region,  allocation_result_node_final,
          cost_difference, CBM, Consol_CBM, Consol_CBM_NDC)  |>
   rename(`Final decision` = allocation_result_node_final,
          `RDC consol` =Consol_CBM,
          `NDC consol` =Consol_CBM_NDC)|> 
-  mutate(Yearmonth =as.character(Yearmonth),
+  mutate(
          Region =factor(Region),
         `Final decision` =factor(`Final decision`) ) |>
      
@@ -828,7 +833,7 @@ predict_result_final |>
         initComplete = JS(
           "function(settings, json) {",
           "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
-          "}"))) |> formatRound(6:8,2)
+          "}"))) |> formatRound(5:7,2)
                                                                                                                           
                                                                                                                                 
                                                                                                                                                           
@@ -837,6 +842,20 @@ predict_result_final |>
 ```
 ## 📔 Conclusion
 
+
+The table below documents the decision result summary for AMES testing products. 
+We can notice that the structure of the result distribution is consistent across the regions. 
+Only a few of the SKUs can solely fulfill the volume requirement for FCL(`1238`,`1271` and `1234` and `1264` in Sydney); the majority  still need cargo consolidation with other SKUs from the same supplier.Due to the remarkable cost difference in sea freight compared to domestic road freight charges, most of the RDC parcel decisions will be reassessed in the cost analysis node and  rerouted back to the RDC warehouse, which is consistent with the practical handling  scenarios observed in AMES. 
+
+
+Brisbane and Adelaide are crucial sources for their  customers. Hence, it is reflected that all regional products will be directly bound to the RDC warehouse. And the sku in `2LI` still need to ship to NDC for consolidation first in Sydney and Adelaide.
+
+Worth noting, in actual practice, there are rare scenarios for the roundup trade-off during single SKU, and the cubic meter (CBM) exists as a fault line between 80 CBM and 50 CBM.
+
+
+<br>
+<br>
+<br>
 ```{r}
 HTML( '<p style="color =grey; margin-left:10px;"> Version 1.0 | This webpage is licensed by <a href="https://creativecommons.org/licenses/by/3.0/"><i class="fa-brands fa-creative-commons"></i> CC 3.0</a> | Monash AMES project team')
 ```
