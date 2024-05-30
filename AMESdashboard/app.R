@@ -237,7 +237,7 @@ ui <- dashboardPage(
                               dropdownButton(
                                 inputId = "dropdown_model",
                                 label ="Model",
-                                circle=FALSE,
+                               circle=FALSE,
                                 icon= icon("chart-column"),
                                 status ="warning",
                                 selectizeInput("model","Choices:",
@@ -309,8 +309,24 @@ ui <- dashboardPage(
                        style = "bordered",
                        color = "primary"
                      )
-                     ) ## END BRACKET OF tabPanel
-                     
+                     ), ## END BRACKET OF tabPanel
+                     tabPanel(title ="User Instruction",
+                   p(HTML('<p style="color: #8b0000;">Widgets control</p>')),  
+                   
+                   p(HTML('At the top of windows, there has 4 interactive elements in the hidden brick to allow user  make dynamic change on the plot.
+                         <b>Data update</b> is a portal for file management, user can input their csv file and refresh the webpage. 
+                         <b>Product</b> and <b>Region</b> are the selection lists of product code based on the file given.
+                         <b>Model</b> is the specific model that impact for demand forecasting only. 
+                         it will give the consideration of 3 different models for prediction:
+                        1). ETS(Error,trend and residual) 2). ARIMA model(AutoRegressive Integrated Moving Average) and 3).simple 12-month rolling average
+                          ')),
+                    p(HTML('<p style="color: #8b0000;">Pattern learning tab</p>')),
+                    p(HTML('This session aims at understanding the pattern of the order demand in historical time series,
+                    which involves identifying and analyzing recurring cyclical patterns and trends within sequential data points over time.
+                    <b>Overall trend </b> depicts the  upward or downward  movement for sku pvertime, while <b>Seasonality breakdown</b>
+                     provides a unique perspective to showcase the trend and pattern for each chunk of seasonality(monthly, quarterly...).'))
+                   
+                     )
               ), ## End bracket of tabBox 
               br(),
               br(),
@@ -850,8 +866,8 @@ server <- function(input, output,session) {
         filter(season > max(prod_exp$season)) |> 
         left_join(prod_exp_sigma, by = "Product") |> 
         mutate(
-          low80 = Volume - as.numeric(input$servicelvl) * sigma,
-          high80 = Volume + as.numeric(input$servicelvl) * sigma
+          low= Volume - as.numeric(input$servicelvl) * sigma,
+          high = Volume + as.numeric(input$servicelvl) * sigma
         )
       
       return(forecast_result)
