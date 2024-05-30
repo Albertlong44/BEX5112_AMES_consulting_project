@@ -100,6 +100,8 @@ dt_color_list<-c("RDC: FCL for single sku" ="#AFE1AF",
                  "NDC: FCL for consolidated sku"="#e7e0e8"
                  
 )
+
+serice_lvl_list<-c("95%"=1.96,"90%"=1.645, "85%"=1.44, "96%"=2.054,"97%"=2.17, "98%"=2.326,"99%"=2.576,"99.5%"=2.807)
                  
 ## Function
 
@@ -277,7 +279,7 @@ ui <- dashboardPage(
                               h3('Model prediction:'),
                               
                               fluidRow(width =12, 
-                                       column(width =4,
+                                       column(width =3,
                                               numericInputIcon("dforeperiod","Predicted period:", value=6, min = 1, max = 20, 
                                                                icon =icon("sliders"),
                                                                help_text = "Out of bound")
@@ -287,6 +289,10 @@ ui <- dashboardPage(
                                                                icon =icon("sliders"), 
                                                                help_text = "Out of bound")
                                        ),
+                                       column(width=3,
+                                             selectizeInput("servicelvl","Service level:", 
+                                                            choices =serice_lvl_list,
+                                                            selected= serice_lvl_list[1])),
                                        column(width =3,
                                               selectizeInput("seasontypest2","Season type:", 
                                                              choices =c("Month", "Quarter", "Year"),
@@ -294,7 +300,15 @@ ui <- dashboardPage(
                                        )
                               ),
                               
-                              withSpinner( plotlyOutput("modelresult")) 
+                              withSpinner( plotlyOutput("modelresult")
+                     ) ,
+                     downloadBttn(
+                       outputId = "downloadData6",
+                       label ="template",
+                       size = "xs",
+                       style = "bordered",
+                       color = "primary"
+                     )
                      ) ## END BRACKET OF tabPanel
                      
               ), ## End bracket of tabBox 
@@ -322,7 +336,7 @@ ui <- dashboardPage(
                                         choices =c(CSV="csv",Excel ="xlsx"), inline =TRUE)),
                     column(width =6,
                            downloadBttn(
-                             outputId = "downloadData4",
+                             outputId = "downloadData7",
                              label ="template",
                              size = "xs",
                              style = "bordered",
@@ -786,6 +800,92 @@ server <- function(input, output,session) {
             strip.text.x = element_text(size = 12, face ="bold"))
   })
   
+ 
+  
+  forecastData <- reactive({
+    transform_time <- switch(input$seasontypest2,
+                             "Month" = yearmonth,
+                             "Quarter" = yearquarter,
+                             "Year" = function(x) year(yearmonth(x))
+    )   
+    
+    if (input$model == "Rolling average") {
+      prod_exp <- data_prod1() |>
+        filter(Region == input$region & Product %in% input$product) |>
+        mutate(season = transform_time(Yearmonth)) |>
+        group_by(season, Region, Product) |>
+        summarise(Volume = sum(Volume))
+      
+      n <- input$dforeperiod
+      future_date <- rep(0, n)
+      
+      for (i in 1:n) {
+        future_date[i] <- as.character(max(prod_exp$season) + i)
+      }
+      
+      unique_prod_len <- length(unique(prod_exp$Product))
+      
+      future_date_dt <- data.frame(season = rep(transform_time(future_date), unique_prod_len),
+                                   Product = rep(unique(prod_exp$Product), each = n)) |>  
+        arrange(season, Product)
+      future_date_dt$Region <- "MEL"
+      future_date_dt$Volume <- NA
+      
+      prod_exp_tail <- tail(prod_exp, 12 * unique_prod_len) |> 
+        select(season, Product, Volume)
+      
+      prod_exp_rbind <- rbind(prod_exp_tail, future_date_dt)
+      
+      Start_point <- 12 * unique_prod_len + 1
+      for (i in Start_point:nrow(prod_exp_rbind)) {
+        prod_exp_rbind$Volume[i] <- round(sum(tail(prod_exp_rbind[prod_exp_rbind$Product == prod_exp_rbind$Product[i] & !is.na(prod_exp_rbind$Volume), ], 12)$Volume) / 12, digits = 0)
+      }
+      
+      prod_exp_sigma <- 
+        prod_exp_rbind |> 
+        group_by(Product) |> 
+        summarise(sigma = sd(Volume))
+      
+      forecast_result <- prod_exp_rbind |>  
+        filter(season > max(prod_exp$season)) |> 
+        left_join(prod_exp_sigma, by = "Product") |> 
+        mutate(
+          low80 = Volume - as.numeric(input$servicelvl) * sigma,
+          high80 = Volume + as.numeric(input$servicelvl) * sigma
+        )
+      
+      return(forecast_result)
+    } else {
+      transform_model <- switch(input$model,
+                                "ETS" = ETS,
+                                "ARIMA" = ARIMA)
+      
+      prod_exp_tsb <- data_prod1() |>
+        filter(Region == input$region & Product %in% input$product) |>
+        mutate(season = transform_time(Yearmonth)) |>
+        group_by(season, Region, Product) |>
+        summarise(Volume = sum(Volume)) |>
+        as_tsibble(index = season, key = Product)
+      
+      forecast_result <- prod_exp_tsb |>
+        model(transform_model(Volume)) |> 
+        forecast(h = input$dforeperiod) |>  
+        as.tibble() |> 
+        mutate(
+          range = Volume,
+          Volume = .mean,
+          var = as.numeric(str_extract(range, "(?<=,\\s)\\d+\\.?\\d*(?:[eE][-+]?\\d+)?")),
+          sigma = sqrt(var),
+          low= Volume - as.numeric(input$servicelvl) * sigma,
+          high= Volume + as.numeric(input$servicelvl) * sigma
+        )
+      
+      return(forecast_result)
+    }
+  })
+  
+ 
+  
   output$modelresult<- renderPlotly({
     ## Define time transformation function based on selected input
     transform_time <- switch(input$seasontypest2,
@@ -850,10 +950,8 @@ server <- function(input, output,session) {
         left_join(
           prod_exp_sigma, by ="Product")|> 
         mutate(
-          low80 =  Volume- 1.282 *sigma,
-          high80 =  Volume+ 1.282 *sigma,
-          low90 =  Volume- 1.645*sigma,
-          high90 =  Volume+ 1.645 *sigma)
+          low =  Volume- as.numeric(input$servicelvl) *sigma,
+          high=  Volume+ as.numeric(input$servicelvl) *sigma)
       
       prod_exp_tail_final<-prod_exp |> tail(n =as.numeric(input$modeltp)* unique_prod_len)
       
@@ -861,24 +959,6 @@ server <- function(input, output,session) {
                               select(Product,season, Volume),
                             forecast_result |> 
                               select( Product,season, Volume))
-      Sys.sleep(1)
-      
-      predictplot<-ggplot(data = forecast_result) +
-        geom_line(data=prod_exp_bind, 
-                  aes(season, Volume,color =Product), 
-                  size =0.8,linetype ="dotdash") +
-        theme_bw() +
-        geom_ribbon( aes(x = season, ymin =low80,  
-                         ymax =high80,fill = Product ), alpha =0.8) + 
-        geom_ribbon( aes(x = season, ymin =low90, 
-                         ymax =high90, fill = Product ), alpha =0.2) + 
-        scale_fill_discrete_qualitative(palette ="Dynamic") +
-        geom_line( aes( season, Volume,color =Product),  size =0.8)+
-        theme(legend.position = "bottom")
-      
-      ggplotly(predictplot) |>
-        layout(legend = list(orientation = 'h'))
-      
       
     } else {
       
@@ -907,10 +987,8 @@ server <- function(input, output,session) {
                                var =as.numeric(str_extract(range , 
                                                            "(?<=,\\s)\\d+\\.?\\d*(?:[eE][-+]?\\d+)?")),
                                sigma =sqrt(var),
-                               low80 =  Volume- 1.282 *sigma,
-                               high80 =  Volume+ 1.282 *sigma,
-                               low90 =  Volume- 1.645*sigma,
-                               high90 =  Volume+ 1.645 *sigma
+                               low=  Volume- as.numeric(input$servicelvl) *sigma,
+                               high =  Volume+ as.numeric(input$servicelvl) *sigma
         )## Calculate the upper/lower CI
       
       
@@ -935,11 +1013,8 @@ server <- function(input, output,session) {
                 aes(season, Volume,color =Product), 
                 size =0.8,linetype ="dotdash") +
       theme_bw() +
-      geom_ribbon( aes(x = season, ymin =low80,  
-                       ymax =high80,fill = Product ), alpha =0.8) + 
-      geom_ribbon( aes(x = season, ymin =low90, 
-                       ymax =high90, fill = Product ), alpha =0.2) + 
-      scale_fill_discrete_qualitative(palette ="Dynamic") +
+      geom_ribbon( aes(x = season, ymin =low,  
+                       ymax =high,fill = Product ), alpha =0.5) + 
       geom_line( aes( season, Volume,color =Product),  size =0.8)+
       theme(legend.position = "bottom")
     
@@ -955,6 +1030,23 @@ server <- function(input, output,session) {
     
     
   })
+  
+  
+  
+  output$downloadData6 <- downloadHandler(
+  
+
+    filename = function() {
+      # Use the selected dataset as the suggested file name
+      paste0("Demand_forecast_result", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      forecast_demand<-  forecastData()
+      write.csv( forecast_demand, file)
+    }
+  ) 
+  
+  
   
   
   
@@ -1114,23 +1206,29 @@ server <- function(input, output,session) {
     
     
     ## Data wranggling
-    example_mt<- data_example()  |> mutate(
-                                           Month =yearmonth(Month), ## Convert to year month
-                                           Vm= if_else(Packaging.type=="Without packaging", 
-                                                       Length.cm*Height.cm*Width.cm/6000,
-                                                       Packaging.Length*Packaging.width*Packaging.height/6000), 
-                                           Charge_weight= if_else(Vm>Actual.weight.kg, Vm,Actual.weight.kg ), 
-                                           cbm=  round(Forecast.demand*Charge_weight/1000000,digits=2),# CBM calculation
-                                           leftover_space = (1-cbm/ as.numeric(input$container ))*100,
-                                           pkg_air_vol= if_else(Packaging.type=="Without packaging",
-                                                                Product.volume.cm./(  Length.cm* Height.cm*Width.cm),Product.volume.cm./(Packaging.Length*Packaging.width*Packaging.height)),
-                                           pkg_utilization= 100- round(pkg_air_vol*Forecast.demand*100/1000000,digits=3)
-                                           
-                                           
-                                           
-    )
     
+   
     
+    example_mt<-  data_example()|> 
+      group_by(Product.code,Item_description,Manufacturing.type,Short.description,Brand_name,
+               Supplier.Factory.code,POL,Target.service.level,Region,Forecast.demand,Actual.weight.kg,
+               Length.cm, Height.cm,Width.cm,Packaging.type,`Product.volume.cm.`,Packaging.Length,
+               Packaging.width,Packaging.height,Sensitivity)|> 
+      summarise(Forecast.demand =mean(Forecast.demand))|> 
+      ungroup() |>
+      mutate( 
+              Vm= if_else(Packaging.type=="Without packaging", 
+               Length.cm*Height.cm*Width.cm/6000,
+               Packaging.Length*Packaging.width*Packaging.height/6000), 
+                Charge_weight= if_else(Vm>Actual.weight.kg, Vm,Actual.weight.kg ), 
+                cbm=  round(Forecast.demand*Charge_weight/1000000,digits=2),# CBM calculation
+              leftover_space = (1-cbm/ as.numeric(input$container ))*100,
+             pkg_air_vol= if_else(Packaging.type=="Without packaging",
+             Product.volume.cm./(  Length.cm* Height.cm*Width.cm),Product.volume.cm./(Packaging.Length*Packaging.width*Packaging.height)),
+             pkg_utilization= 100- round(pkg_air_vol*Forecast.demand*100/1000000,digits=3)
+      )
+    
+   
     
     
     ## Summarise the mean
@@ -1219,7 +1317,7 @@ server <- function(input, output,session) {
     example_final_result <- example_cost_study |>
       mutate( 
         Reg_cost =   as.numeric(input$container ) *rdc_sf  + cbm *rdc_storage ,
-        NDC_cost = cbm * (ndc_sf+ rdc_storage + `CBM cost`),
+        NDC_cost = consolidated_cbm * (ndc_sf+ rdc_storage + `CBM cost`),
         cost_difference =  if_else(Region == "MEL" |allocation_result_node1 %in% c("RDC: FCL for single sku", "RDC: FCL for consolidated sku","Other strategy to wait for FCL consolidation"), 
                                    NA, NDC_cost*(1+ as.numeric(input$cost)/100)-Reg_cost),
         allocation_result_node_final = if_else( !is.na(cost_difference)& cost_difference >= 0,"RDC: revise for cost analysis", allocation_result_node1),
@@ -1239,9 +1337,9 @@ server <- function(input, output,session) {
                                                `NDC Consol CBM` =consolidated_cbm_ndc,
                                                `Cost diff` =cost_difference ,
                                                `Allocation result`= allocation_result_node_final ,
-                                               `Warning message`=Warning_message)|>
-      mutate(Month =as.character(Month)) |>
-      select(`Product code`,`Short description`,  Month,Region, `Allocation result`,`Warning message`,`Forecast demand`,CBM,`Consol CBM`,`NDC Consol CBM`, `Cost diff` ) |> 
+                                               `Warning message`=Warning_message) |>
+      select(`Product code`, `Allocation result`,`Warning message`,`Short description`,`Forecast demand`,
+             `Cost diff`,CBM,`Consol CBM`,`NDC Consol CBM`)|>
       datatable(
         callback=JS('
     $("button.buttons-copy").css({

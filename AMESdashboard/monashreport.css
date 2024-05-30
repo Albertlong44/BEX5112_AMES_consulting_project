@@ -93,3 +93,11 @@ button#downloadData6_bttn {
 }
 
 
+button#downloadData7_bttn {
+    background-color: crimson;
+    font-weight: bold;
+    color: white;
+    margin-top: 15px;
+    margin-left: 10px;
+}
+
