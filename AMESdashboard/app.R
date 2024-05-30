@@ -299,6 +299,13 @@ ui <- dashboardPage(
                                                              selected= "Month")
                                        )
                               ),
+                            p(HTML('<p style = " border: 2px solid black; padding: 10px;">
+                                  Hot-selling product: Volatile, and subject to business activity, ETS/ARIMA model to capture the seasonal fluctuation.<br>
+                                  Niche product: Stable and flat line in prediction, 12 month rolling average <br>
+                              Middle(confusion) product: Generally, it follows 12 month rolling average  in region in Adelaide
+                                   and ETS/ARIMA model in remaining region. But it might have exception case in previous study,
+                                   suggesting do an ETS/ARIMA comparison before finalizing the model selection.</p>')),
+                            br(),
                               
                               withSpinner( plotlyOutput("modelresult")
                      ) ,
@@ -316,16 +323,25 @@ ui <- dashboardPage(
                    p(HTML('At the top of windows, there has 4 interactive elements in the hidden brick to allow user  make dynamic change on the plot.
                          <b>Data update</b> is a portal for file management, user can input their csv file and refresh the webpage. 
                          <b>Product</b> and <b>Region</b> are the selection lists of product code based on the file given.
-                         <b>Model</b> is the specific model that impact for demand forecasting only. 
-                         it will give the consideration of 3 different models for prediction:
-                        1). ETS(Error,trend and residual) 2). ARIMA model(AutoRegressive Integrated Moving Average) and 3).simple 12-month rolling average
-                          ')),
+                         <b>Model</b> is the toggle selection for the specific model that applied in demand forecasting only. 
+                         it will give the consideration of 3 different models for prediction: ')),
+                   p(HTML(' 1). ETS(Error,trend and residual), more introduction can be found in <a href=https://otexts.com/fpp3/expsmooth.html>fpp textbook chpt8</a> ')),
+                   p(HTML(' 2). ARIMA model(AutoRegressive Integrated Moving Average), more introduction can be found in<a href=https://otexts.com/fpp3/arima.html>fpp textbook chpt9</a>')),
+                   p(' 3). Simple 12-month rolling average'),
+                   p('Furthermore, except for these 4 overall controls,each graphic also include specific control widgets accordingly.'),
+                   tags$img(src = "https://raw.githubusercontent.com/Albertlong44/BEX5112_AMES_consulting_project/main/Fig/modelintro.png", 
+                            height = "400px", width = "1000px"),
+                   br(),
                     p(HTML('<p style="color: #8b0000;">Pattern learning tab</p>')),
                     p(HTML('This session aims at understanding the pattern of the order demand in historical time series,
                     which involves identifying and analyzing recurring cyclical patterns and trends within sequential data points over time.
                     <b>Overall trend </b> depicts the  upward or downward  movement for sku pvertime, while <b>Seasonality breakdown</b>
-                     provides a unique perspective to showcase the trend and pattern for each chunk of seasonality(monthly, quarterly...).'))
-                   
+                     provides a unique perspective to showcase the trend and pattern for each chunk of seasonality(monthly, quarterly...).')),
+                   p(HTML('<p style="color: #8b0000;">Demand forecasting tab</p>')),
+                   p(HTML('This session aims at  predicting future customer demand based on the historical pattern.
+                          <b>STL Decomposition </b> is a method used to break down a time series into three main components: seasonal, trend, and residual,
+                          while <b>Model prediction</b>  depicts the line chart of predicive result with confidence interval at certain service level and historical data in the same canvas,
+                          which help the evaluate the fitness of the model. In the end, it will return a csv file about forecast result for download. '))
                      )
               ), ## End bracket of tabBox 
               br(),

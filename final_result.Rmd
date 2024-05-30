@@ -288,7 +288,7 @@ Where
 
 1). $ϕ_1,ϕ_2...ϕ_p$ are the autoregressive coefficients.
 
-2). $θ__1,θ__2...θ__p$ are the moving average coefficients.
+2). $θ_1,θ_2...θ_p$ are the moving average coefficients.
 
 3). $ε_t$ is the error term at time 𝑡
 
@@ -564,8 +564,8 @@ The table reports the model result for all relevant data by ETS/ARIMA model fore
 example_mt_rbind |> mutate( Yearmonth =as.character(Yearmonth),
                             Region =factor(Region),
                             `Item Code`  =factor(  `Item Code`)) |>
-  select(-`Item & Region`) |>
-  datatable( filter ="top",
+  select(-`Item & Region`)|>
+   datatable( filter ="top",
       callback=JS('
     $("button.buttons-copy").css({
         "background": "#81D8D0",
@@ -599,7 +599,7 @@ example_mt_rbind |> mutate( Yearmonth =as.character(Yearmonth),
         initComplete = JS(
           "function(settings, json) {",
           "$(this.api().table().header()).css({'background-color': '#3A5311', 'color': '#fff'});",
-          "}")))|> formatRound(5:11,0)
+          "}")))  |> formatRound(5:11,0)
 ```
 
 # 💡 Decision model
