@@ -144,7 +144,24 @@ ui <- dashboardPage(
   options = list(sidebarExpandOnHover = TRUE),
   header= dashboardHeader(
     title= tags$img(src ="https://www.nssa.org.au/client_images/2430471.png" , 
-                    height = "90px", width="90px", style = "margin-top: 3px;")
+                    height = "90px", width="90px", style = "margin-top: 3px;"),
+    dropdownMenu(type = "messages",
+                 
+                 messageItem(
+                   from = "Weclome!🎉🎉🎉",
+                   message = " Get funny in interaction~",
+                   icon =icon("envelope")),
+                 messageItem(
+                   from = "Creditor",
+                   message =HTML('
+  <br>
+  <p>Author: BEX5112 AMES project team</p>
+  <br>
+  <p>Contact email: ylon0012@gmail.com</p>'),
+                   
+                   icon =icon("image-portrait")),
+                 menuItem("GitHub profile", icon = icon("github"),
+                          href = "https://github.com/Albertlong44/template_new_energy"))
     
     
   ), ## end basket of header
