@@ -301,7 +301,9 @@ ui <- dashboardPage(
                               ),
                             p(HTML('<p style = " border: 2px solid black; padding: 10px;">
                                   Hot-selling product: Volatile, and subject to business activity, ETS/ARIMA model to capture the seasonal fluctuation.<br>
+                                  <br>
                                   Niche product: Stable and flat line in prediction, 12 month rolling average <br>
+                                  <br>
                               Middle(confusion) product: Generally, it follows 12 month rolling average  in region in Adelaide
                                    and ETS/ARIMA model in remaining region. But it might have exception case in previous study,
                                    suggesting do an ETS/ARIMA comparison before finalizing the model selection.</p>')),
